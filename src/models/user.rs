@@ -1,8 +1,7 @@
-use diesel::prelude::*;
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-#[derive(Queryable, Selectable)]
-#[diesel(table_name = crate::schema::user)]
-#[diesel(check_for_backend(diesel::mysql::Mysql))]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct User {
     pub username: String,
     pub nickname: String,

@@ -1,5 +1,5 @@
-use diesel::prelude::*;
+use sqlx::MySqlPool;
 
 pub struct AppState {
-    pub connection: MysqlConnection,
+    pub pool: MySqlPool,
 }

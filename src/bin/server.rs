@@ -1,29 +1,29 @@
-use actix_web::{self, App, HttpServer, web};
-use diesel::prelude::*;
-use dotenvy::dotenv;
 
+use rocket::{self, routes};
+use sqlx::MySqlPool;
+use dotenvy::dotenv;
 
 use startpage::state::AppState;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    dotenv().expect("Failed to load .env file");
+use startpage::routes::{user, auth};
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    dotenv().expect("Failed to read .env file");
 
-    let host = std::env::var("SERVER_HOST").expect("HOST must be set");
-    let port = std::env::var("SERVER_PORT").expect("PORT must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
 
-    let server_addr = format!("{}:{}", host, port);
+    let pool = MySqlPool::connect(&database_url).await.expect("Failed to connect to MySQL");
 
-    HttpServer::new(move || {
-        let connection = MysqlConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url));
+    let state = AppState { pool };
 
-        App::new()
-            .app_data(web::Data::new(AppState { connection }))
-            .configure(startpage::routes::user::user_routes)
-    })
-        .bind(server_addr)?
-        .run()
-        .await
+    let _rok = rocket::build()
+        .manage(state)
+        .mount("/api/user", routes![user::update])
+        .mount("/api/auth", routes![auth::login])
+        .launch()
+        .await?;
+
+
+    Ok(())
 }
