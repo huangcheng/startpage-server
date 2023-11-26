@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::errors::ServiceError;
 
-pub fn calculate_expires(expires: &str) -> Result<i64, ServiceError> {
+pub fn parse_duration(expires: &str) -> Result<Duration, ServiceError> {
     let re = Regex::new(r"^(\d+)([smhdwMy])$")?;
 
     let caps = match re.captures(expires) {
@@ -34,9 +34,6 @@ pub fn calculate_expires(expires: &str) -> Result<i64, ServiceError> {
         }
     };
 
-    let now = Utc::now();
-    let expires = now;
-
     let offset = match unit {
         "s" => Duration::seconds(num as i64),
         "m" => Duration::minutes(num as i64),
@@ -52,7 +49,14 @@ pub fn calculate_expires(expires: &str) -> Result<i64, ServiceError> {
         }
     };
 
-    Ok((expires + offset).timestamp())
+    Ok(offset)
+}
+
+pub fn calculate_expires(expires: &str) -> Result<i64, ServiceError> {
+    let now = Utc::now();
+    let offset = parse_duration(expires)?;
+
+    Ok((now + offset).timestamp())
 }
 
 #[cfg(test)]

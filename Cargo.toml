@@ -11,6 +11,7 @@ default-run = "server"
 [dependencies]
 bcrypt = "0.15.0"
 chrono = { version = "0.4.31", features = ["serde"] }
+cookie = "0.18.0"
 derive_more = "0.99.17"
 dotenvy = "0.15.7"
 fern = "0.6.2"
