@@ -1,5 +1,6 @@
 [package]
 name = "startpage-server"
+authors = ["HUANG Cheng <cheng@duck.com>"]
 version = "0.1.0"
 edition = "2021"
 

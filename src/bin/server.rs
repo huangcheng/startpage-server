@@ -1,10 +1,10 @@
+use dotenvy::dotenv;
 use rocket::{self, routes};
 use sqlx::MySqlPool;
-use dotenvy::dotenv;
 
+use startpage::routes::{auth, user};
 use startpage::state::AppState;
 use startpage::utils::calculate_expires;
-use startpage::routes::{user, auth};
 
 fn drop_rocket(meta: &log::Metadata) -> bool {
     let name = meta.target();
@@ -48,9 +48,15 @@ async fn main() -> Result<(), rocket::Error> {
 
     let jwt_expiration = calculate_expires(&jwt_expire_in).expect("Failed to calculate expires");
 
-    let pool = MySqlPool::connect(&database_url).await.expect("Failed to connect to database");
+    let pool = MySqlPool::connect(&database_url)
+        .await
+        .expect("Failed to connect to database");
 
-    let state = AppState { pool, jwt_secret, jwt_expiration };
+    let state = AppState {
+        pool,
+        jwt_secret,
+        jwt_expiration,
+    };
 
     let _rok = rocket::build()
         .manage(state)

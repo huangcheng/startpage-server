@@ -1,6 +1,6 @@
-use rocket::request::{FromRequest, Outcome};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use rocket::http::Status;
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use rocket::request::{FromRequest, Outcome};
 
 use crate::Claims;
 
@@ -45,7 +45,8 @@ impl<'r> FromRequest<'r> for JwtMiddleware {
             Err(_) => return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken)),
         };
 
-        Outcome::Success(JwtMiddleware { username: token.claims.sub })
+        Outcome::Success(JwtMiddleware {
+            username: token.claims.sub,
+        })
     }
 }
-
