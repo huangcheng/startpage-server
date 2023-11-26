@@ -3,12 +3,12 @@ use std::ops::Deref;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket::{get, put};
+use rocket::{get, post, put};
 
-use crate::handlers::category::{get_all_categories, update_category};
+use crate::handlers::category::{add_category, get_all_categories, update_category};
 use crate::middlewares::JwtMiddleware;
 use crate::models::category::Category;
-use crate::request::category::UpdateCategory;
+use crate::request::category::{CreateCategory, UpdateCategory};
 use crate::state::AppState;
 
 #[get("/")]
@@ -30,4 +30,17 @@ pub async fn update<'r>(
         .map_err(|e| e.status())?;
 
     Ok(Json(category))
+}
+
+#[post("/", format = "json", data = "<category>")]
+pub async fn add<'r>(
+    category: Json<CreateCategory<'r>>,
+    state: &State<AppState>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
+    add_category(category.deref(), state)
+        .await
+        .map_err(|e| e.status())?;
+
+    Ok(())
 }

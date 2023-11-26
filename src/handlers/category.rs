@@ -3,7 +3,7 @@ use sqlx::{query, query_as};
 
 use crate::errors::ServiceError;
 use crate::models::category::Category;
-use crate::request::category::UpdateCategory;
+use crate::request::category::{CreateCategory, UpdateCategory};
 use crate::state::AppState;
 
 pub async fn get_all_categories(state: &State<AppState>) -> Result<Vec<Category>, ServiceError> {
@@ -53,4 +53,17 @@ pub async fn update_category<'r>(
         .await?;
 
     Ok(record)
+}
+
+pub async fn add_category(
+    category: &CreateCategory<'_>,
+    state: &State<AppState>,
+) -> Result<(), ServiceError> {
+    query(r#"INSERT INTO category (name, description) VALUES (?, ?)"#)
+        .bind(category.name)
+        .bind(category.description)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
 }
