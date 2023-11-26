@@ -2,7 +2,7 @@ use dotenvy::dotenv;
 use rocket::{self, routes};
 use sqlx::MySqlPool;
 
-use startpage::routes::{auth, user};
+use startpage::routes::{auth, category, user};
 use startpage::state::AppState;
 use startpage::utils::calculate_expires;
 
@@ -62,6 +62,7 @@ async fn main() -> Result<(), rocket::Error> {
         .manage(state)
         .mount("/api/user", routes![user::me])
         .mount("/api/auth", routes![auth::login])
+        .mount("/api/categories", routes![category::all])
         .launch()
         .await?;
 
