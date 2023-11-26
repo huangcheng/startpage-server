@@ -1,14 +1,15 @@
-use rocket::http::Status;
-use rocket::log::private::error;
 use sqlx::query_as;
 use bcrypt::verify;
+use log::error;
+use jsonwebtoken::{encode, Header, EncodingKey};
 
-use crate::response;
 use crate::request;
 use crate::models;
 use crate::state::AppState;
+use crate::errors::ServiceError;
+use crate::Claims;
 
-pub async fn login(user: &request::auth::User<'_>, state: &AppState) -> Result<response::auth::User, Status> {
+pub async fn login(user: &request::auth::User<'_>, state: &AppState) -> Result<String, ServiceError> {
    let record = query_as::<_, models::user::User>(
        r#"SELECT username, nickname, password, avatar, email FROM user WHERE username = ?"#,
    )
@@ -16,23 +17,35 @@ pub async fn login(user: &request::auth::User<'_>, state: &AppState) -> Result<r
        .fetch_one(&state.pool).await.map_err(|e| {
             error!("Failed to query user: {}", e);
 
-            Status::InternalServerError
+            ServiceError::InternalServerError
         })?;
 
     let valid = verify(user.password, &record.password).map_err(|e| {
         error!("Failed to verify password: {}", e);
 
-        Status::InternalServerError
+
+        ServiceError::InternalServerError
     })?;
 
     if valid {
-        Ok(response::auth::User {
-            username: record.username,
-            nickname: record.nickname,
-            email: record.email,
-            avatar: record.avatar,
-        })
+        let claims = Claims {
+            sub: record.username,
+            company: String::from("StartPage"),
+            exp: state.jwt_expiration as usize,
+        };
+
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
+        ).map_err(|e| {
+            error!("Failed to encode token: {}", e);
+
+            ServiceError::InternalServerError
+        })?;
+
+        Ok(token)
     } else {
-        Err(Status::Unauthorized)
+        Err(ServiceError::Unauthorized)
     }
 }
