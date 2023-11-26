@@ -1,16 +1,22 @@
 use derive_more::Display;
+use rocket::http::Status;
 
 #[allow(dead_code)]
 #[derive(Debug, Display)]
 pub enum ServiceError {
+    #[display(fmt = "Database error: {}", _0)]
     DatabaseError(sqlx::Error),
 
+    #[display(fmt = "Format error: {}", _0)]
     FormatError(String),
 
+    #[display(fmt = "Not found")]
     NotFound,
 
+    #[display(fmt = "Unauthorized")]
     Unauthorized,
 
+    #[display(fmt = "Internal server error")]
     InternalServerError,
 }
 
@@ -29,5 +35,17 @@ impl From<regex::Error> for ServiceError {
 impl From<std::num::ParseIntError> for ServiceError {
     fn from(error: std::num::ParseIntError) -> Self {
         ServiceError::FormatError(error.to_string())
+    }
+}
+
+impl ServiceError {
+    pub fn status(&self) -> Status {
+        match self {
+            ServiceError::DatabaseError(_) => Status::InternalServerError,
+            ServiceError::FormatError(_) => Status::BadRequest,
+            ServiceError::NotFound => Status::NotFound,
+            ServiceError::Unauthorized => Status::Unauthorized,
+            ServiceError::InternalServerError => Status::InternalServerError,
+        }
     }
 }

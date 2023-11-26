@@ -26,7 +26,7 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Info)
-        // .filter(drop_rocket)
+        .filter(drop_rocket)
         .chain(std::io::stdout())
         .apply()?;
     Ok(())
@@ -34,7 +34,9 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    setup_logger().expect("Failed to setup logger");
+    if !cfg!(debug_assertions) {
+        setup_logger().expect("Failed to setup logger");
+    }
 
     dotenv().expect("Failed to read .env file");
 
@@ -52,7 +54,7 @@ async fn main() -> Result<(), rocket::Error> {
 
     let _rok = rocket::build()
         .manage(state)
-        .mount("/api/user", routes![user::update])
+        .mount("/api/user", routes![user::me])
         .mount("/api/auth", routes![auth::login])
         .launch()
         .await?;
