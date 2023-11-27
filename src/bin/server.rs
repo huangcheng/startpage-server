@@ -60,7 +60,10 @@ async fn main() -> Result<(), rocket::Error> {
 
     let _rok = rocket::build()
         .manage(state)
-        .mount("/api/user", routes![user::me])
+        .mount(
+            "/api/user",
+            routes![user::me, user::update, user::update_password],
+        )
         .mount("/api/auth", routes![auth::login, auth::logout])
         .mount("/api/categories", routes![category::all])
         .mount(
