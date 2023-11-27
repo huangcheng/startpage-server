@@ -1,9 +1,11 @@
 use rocket::State;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Row};
 
 use crate::errors::ServiceError;
 use crate::models::category::Category;
+use crate::models::site::Site;
 use crate::request::category::{CreateCategory, UpdateCategory};
+use crate::request::site::CreateSite;
 use crate::response;
 use crate::state::AppState;
 
@@ -80,10 +82,69 @@ pub async fn add_category(
 }
 
 pub async fn delete_category(id: &str, state: &State<AppState>) -> Result<(), ServiceError> {
+    let sites_count =
+        query(r#"SELECT COUNT(site_id) AS count FROM category_site WHERE category_id = ?"#)
+            .bind(id)
+            .fetch_one(&state.pool)
+            .await?
+            .get::<i64, &str>("count");
+
+    if sites_count > 0 {
+        return Err(ServiceError::BadRequest(String::from("Category is in use")));
+    }
+
     query(r#"DELETE FROM category WHERE id = ?"#)
         .bind(id)
         .execute(&state.pool)
         .await?;
 
     Ok(())
+}
+
+pub async fn add_site(
+    category_id: &str,
+    site: &CreateSite<'_>,
+    state: &State<AppState>,
+) -> Result<(), ServiceError> {
+    query_as::<_, Category>(
+        r#"SELECT id, name, description, created_at, updated_at FROM category WHERE id = ?"#,
+    )
+    .bind(category_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => ServiceError::NotFound,
+        _ => ServiceError::DatabaseError(e),
+    })?;
+
+    let id = query(r#"INSERT INTO site (name, url, description, icon) VALUES (?, ?, ?, ?)"#)
+        .bind(site.name)
+        .bind(site.url)
+        .bind(site.description)
+        .bind(site.icon)
+        .execute(&state.pool)
+        .await?
+        .last_insert_id();
+
+    query(r#"INSERT INTO category_site (category_id, site_id) VALUES (?, ?)"#)
+        .bind(category_id)
+        .bind(id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn get_sites(
+    category_id: &str,
+    state: &State<AppState>,
+) -> Result<Vec<response::site::Site>, ServiceError> {
+    let sites = query_as::<_, Site>(
+        r#"SELECT id, name, url, description, icon, created_at, updated_at FROM site WHERE id IN (SELECT site_id FROM category_site WHERE category_id = ?)"#,
+    )
+    .bind(category_id)
+    .fetch_all(&state.pool)
+    .await?;
+
+    Ok(sites.into_iter().map(|site| site.into()).collect())
 }

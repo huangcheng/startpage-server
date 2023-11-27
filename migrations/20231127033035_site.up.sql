@@ -1,6 +1,6 @@
 CREATE TABLE site
 (
-    id          INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    id          INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,
     url         VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,

@@ -7,11 +7,13 @@ use rocket::State;
 use rocket::{delete, get, post, put};
 
 use crate::handlers::category::{
-    add_category, delete_category, get_all_categories, update_category,
+    self, add_category, delete_category, get_all_categories, update_category,
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, UpdateCategory};
+use crate::request::site::CreateSite;
 use crate::response::category::Category;
+use crate::response::site::Site;
 use crate::state::AppState;
 
 #[get("/")]
@@ -71,4 +73,33 @@ pub async fn delete<'r>(
     })?;
 
     Ok(())
+}
+
+#[post("/<id>/site", format = "json", data = "<site>")]
+pub async fn add_site(
+    id: &str,
+    site: Json<CreateSite<'_>>,
+    state: &State<AppState>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
+    category::add_site(id, site.deref(), state)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.status()
+        })?;
+
+    Ok(())
+}
+
+#[get("/<id>/sites")]
+pub async fn get_sites(id: &str, state: &State<AppState>) -> Result<Json<Vec<Site>>, Status> {
+    let sites = category::get_sites(id, state).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
+
+    Ok(Json(sites))
 }

@@ -18,6 +18,9 @@ pub enum ServiceError {
 
     #[display(fmt = "Internal server error")]
     InternalServerError,
+
+    #[display(fmt = "Bad request: {}", _0)]
+    BadRequest(String),
 }
 
 impl From<sqlx::Error> for ServiceError {
@@ -46,6 +49,7 @@ impl ServiceError {
             ServiceError::NotFound => Status::NotFound,
             ServiceError::Unauthorized => Status::Unauthorized,
             ServiceError::InternalServerError => Status::InternalServerError,
+            ServiceError::BadRequest(_) => Status::BadRequest,
         }
     }
 }
