@@ -139,14 +139,19 @@ pub async fn get_sites(
     category_id: &str,
     state: &State<AppState>,
 ) -> Result<Vec<response::site::Site>, ServiceError> {
-    let sites = query_as::<_, Site>(
-        r#"SELECT id, name, url, description, icon, created_at, updated_at FROM site WHERE id IN (SELECT site_id FROM category_site WHERE category_id = ?)"#,
+    let sites = query_as::<_, response::site::Site>(
+        r#"SELECT site.id, site.name, site.url, site.description, site.icon, site.created_at, site.updated_at, category.name AS category
+                FROM site
+                INNER JOIN category_site ON site.id = category_site.site_id
+                INNER JOIN category ON category.id = category_site.category_id
+                WHERE site.id IN (SELECT site_id FROM category_site WHERE category_id = ?)
+            "#,
     )
     .bind(category_id)
     .fetch_all(&state.pool)
     .await?;
 
-    Ok(sites.into_iter().map(|site| site.into()).collect())
+    Ok(sites)
 }
 
 pub async fn modify_site(
