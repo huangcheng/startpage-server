@@ -6,3 +6,12 @@ pub struct CreateSite<'r> {
     pub description: &'r str,
     pub icon: &'r str,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSite<'r> {
+    pub name: Option<&'r str>,
+    pub url: Option<&'r str>,
+    pub description: Option<&'r str>,
+    pub icon: Option<&'r str>,
+    pub category_id: Option<i64>,
+}

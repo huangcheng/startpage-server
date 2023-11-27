@@ -71,6 +71,7 @@ async fn main() -> Result<(), rocket::Error> {
                 category::delete,
                 category::add_site,
                 category::get_sites,
+                category::update_site,
             ],
         )
         .launch()

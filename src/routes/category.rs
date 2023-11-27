@@ -7,11 +7,11 @@ use rocket::State;
 use rocket::{delete, get, post, put};
 
 use crate::handlers::category::{
-    self, add_category, delete_category, get_all_categories, update_category,
+    self, add_category, delete_category, get_all_categories, modify_site, update_category,
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, UpdateCategory};
-use crate::request::site::CreateSite;
+use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::category::Category;
 use crate::response::site::Site;
 use crate::state::AppState;
@@ -21,7 +21,7 @@ pub async fn all(state: &State<AppState>) -> Result<Json<Vec<Category>>, Status>
     let categories = get_all_categories(state).await.map_err(|e| {
         error!("{}", e);
 
-        e.status()
+        e.into()
     })?;
 
     Ok(Json(categories))
@@ -39,7 +39,7 @@ pub async fn update<'r>(
         .map_err(|e| {
             error!("{}", e);
 
-            e.status()
+            e.into()
         })?;
 
     Ok(())
@@ -54,7 +54,7 @@ pub async fn add<'r>(
     add_category(category.deref(), state).await.map_err(|e| {
         error!("{}", e);
 
-        e.status()
+        e.into()
     })?;
 
     Ok(())
@@ -69,7 +69,7 @@ pub async fn delete<'r>(
     delete_category(id, state).await.map_err(|e| {
         error!("{}", e);
 
-        e.status()
+        e.into()
     })?;
 
     Ok(())
@@ -87,7 +87,26 @@ pub async fn add_site(
         .map_err(|e| {
             error!("{}", e);
 
-            e.status()
+            e.into()
+        })?;
+
+    Ok(())
+}
+
+#[put("/<id>/site/<site_id>", format = "json", data = "<site>")]
+pub async fn update_site<'r>(
+    id: &'r str,
+    site_id: &'r str,
+    site: Json<UpdateSite<'r>>,
+    state: &'r State<AppState>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
+    modify_site(id, site_id, site.deref(), state)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.into()
         })?;
 
     Ok(())
@@ -98,7 +117,7 @@ pub async fn get_sites(id: &str, state: &State<AppState>) -> Result<Json<Vec<Sit
     let sites = category::get_sites(id, state).await.map_err(|e| {
         error!("{}", e);
 
-        e.status()
+        e.into()
     })?;
 
     Ok(Json(sites))

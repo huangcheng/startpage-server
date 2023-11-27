@@ -1,3 +1,4 @@
+use log::error;
 use std::ops::Deref;
 
 use rocket::http::Status;
@@ -19,7 +20,11 @@ pub async fn login(
 ) -> Result<response::auth::JwtToken, Status> {
     let token = handlers::auth::login(user.deref(), state)
         .await
-        .map_err(|e| e.status())?;
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.into()
+        })?;
 
     Ok(response::auth::JwtToken { token })
 }

@@ -5,7 +5,7 @@ use crate::errors::ServiceError;
 use crate::models::category::Category;
 use crate::models::site::Site;
 use crate::request::category::{CreateCategory, UpdateCategory};
-use crate::request::site::CreateSite;
+use crate::request::site::{CreateSite, UpdateSite};
 use crate::response;
 use crate::state::AppState;
 
@@ -36,7 +36,7 @@ pub async fn update_category<'r>(
     .fetch_one(&state.pool)
     .await
     .map_err(|e| match e {
-        sqlx::Error::RowNotFound => ServiceError::NotFound,
+        sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Category not found")),
         _ => ServiceError::DatabaseError(e),
     })?;
 
@@ -113,7 +113,7 @@ pub async fn add_site(
     .fetch_one(&state.pool)
     .await
     .map_err(|e| match e {
-        sqlx::Error::RowNotFound => ServiceError::NotFound,
+        sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Category not found")),
         _ => ServiceError::DatabaseError(e),
     })?;
 
@@ -147,4 +147,85 @@ pub async fn get_sites(
     .await?;
 
     Ok(sites.into_iter().map(|site| site.into()).collect())
+}
+
+pub async fn modify_site(
+    category_id: &str,
+    site_id: &str,
+    site: &UpdateSite<'_>,
+    state: &State<AppState>,
+) -> Result<(), ServiceError> {
+    let record = query_as::<_, Site>(
+        r#"SELECT id, name, url, description, icon, created_at, updated_at FROM site WHERE id = ?"#,
+    )
+    .bind(site_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Site not found")),
+        _ => ServiceError::DatabaseError(e),
+    })?;
+
+    let name = match site.name {
+        Some(name) => String::from(name),
+        None => record.name,
+    };
+
+    let url = match site.url {
+        Some(url) => String::from(url),
+        None => record.url,
+    };
+
+    let description = match site.description {
+        Some(description) => String::from(description),
+        None => record.description,
+    };
+
+    let icon = match site.icon {
+        Some(icon) => String::from(icon),
+        None => record.icon,
+    };
+
+    let record = Site {
+        id: record.id,
+        name,
+        url,
+        description,
+        icon,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+    };
+
+    query(r#"UPDATE site SET name = ?, url = ?, description = ?, icon = ? WHERE id = ?"#)
+        .bind(&record.name)
+        .bind(&record.url)
+        .bind(&record.description)
+        .bind(&record.icon)
+        .bind(record.id)
+        .execute(&state.pool)
+        .await?;
+
+    let category_id = match site.category_id {
+        Some(category_id) => format!("{}", category_id),
+        None => category_id.to_string(),
+    };
+
+    query(r#"SELECT id FROM category WHERE id = ?"#)
+        .bind(&category_id)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => {
+                ServiceError::BadRequest(String::from("Category not found"))
+            }
+            _ => ServiceError::DatabaseError(e),
+        })?;
+
+    query(r#"UPDATE category_site SET category_id = ? WHERE site_id = ?"#)
+        .bind(&category_id)
+        .bind(record.id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
 }
