@@ -229,3 +229,34 @@ pub async fn modify_site(
 
     Ok(())
 }
+
+pub async fn delete_site(
+    category_id: &str,
+    site_id: &str,
+    state: &State<AppState>,
+) -> Result<(), ServiceError> {
+    query(
+        r#"SELECT category_id, site_id FROM category_site WHERE category_id = ? AND site_id = ?"#,
+    )
+    .bind(category_id)
+    .bind(site_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Site not found")),
+        _ => ServiceError::DatabaseError(e),
+    })?;
+
+    query(r#"DELETE FROM category_site WHERE category_id = ? AND site_id = ?"#)
+        .bind(category_id)
+        .bind(site_id)
+        .execute(&state.pool)
+        .await?;
+
+    query(r#"DELETE FROM site WHERE id = ?"#)
+        .bind(site_id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
+}

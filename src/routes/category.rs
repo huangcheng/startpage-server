@@ -112,6 +112,24 @@ pub async fn update_site<'r>(
     Ok(())
 }
 
+#[delete("/<id>/site/<site_id>")]
+pub async fn delete_site(
+    id: &str,
+    site_id: &str,
+    state: &State<AppState>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
+    category::delete_site(id, site_id, state)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.into()
+        })?;
+
+    Ok(())
+}
+
 #[get("/<id>/sites")]
 pub async fn get_sites(id: &str, state: &State<AppState>) -> Result<Json<Vec<Site>>, Status> {
     let sites = category::get_sites(id, state).await.map_err(|e| {
