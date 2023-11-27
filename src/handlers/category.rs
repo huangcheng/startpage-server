@@ -67,3 +67,12 @@ pub async fn add_category(
 
     Ok(())
 }
+
+pub async fn delete_category(id: &str, state: &State<AppState>) -> Result<(), ServiceError> {
+    query(r#"DELETE FROM category WHERE id = ?"#)
+        .bind(id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
+}
