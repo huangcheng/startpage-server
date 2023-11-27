@@ -63,7 +63,10 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/api/user", routes![user::me])
         .mount("/api/auth", routes![auth::login, auth::logout])
         .mount("/api/categories", routes![category::all])
-        .mount("/api/category", routes![category::update, category::add, category::delete])
+        .mount(
+            "/api/category",
+            routes![category::update, category::add, category::delete],
+        )
         .launch()
         .await?;
 

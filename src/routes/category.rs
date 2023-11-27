@@ -1,19 +1,26 @@
 use std::ops::Deref;
 
+use log::error;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket::{get, post, put, delete};
+use rocket::{delete, get, post, put};
 
-use crate::handlers::category::{add_category, get_all_categories, update_category, delete_category};
+use crate::handlers::category::{
+    add_category, delete_category, get_all_categories, update_category,
+};
 use crate::middlewares::JwtMiddleware;
-use crate::models::category::Category;
 use crate::request::category::{CreateCategory, UpdateCategory};
+use crate::response::category::Category;
 use crate::state::AppState;
 
 #[get("/")]
 pub async fn all(state: &State<AppState>) -> Result<Json<Vec<Category>>, Status> {
-    let categories = get_all_categories(state).await.map_err(|e| e.status())?;
+    let categories = get_all_categories(state).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
 
     Ok(Json(categories))
 }
@@ -27,7 +34,11 @@ pub async fn update<'r>(
 ) -> Result<(), Status> {
     update_category(id, category.deref(), state)
         .await
-        .map_err(|e| e.status())?;
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.status()
+        })?;
 
     Ok(())
 }
@@ -38,9 +49,11 @@ pub async fn add<'r>(
     state: &State<AppState>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
-    add_category(category.deref(), state)
-        .await
-        .map_err(|e| e.status())?;
+    add_category(category.deref(), state).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
 
     Ok(())
 }
@@ -51,9 +64,11 @@ pub async fn delete<'r>(
     state: &State<AppState>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
-    delete_category(id, state)
-        .await
-        .map_err(|e| e.status())?;
+    delete_category(id, state).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
 
     Ok(())
 }
