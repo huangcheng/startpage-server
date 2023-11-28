@@ -7,7 +7,7 @@ use rocket::{delete, get, post, put};
 use rocket_db_pools::Connection;
 
 use crate::handlers::category::{
-    self, add_category, delete_category, get_categories, modify_site, update_category,
+    self, add_category, delete_category, get_categories, update_category,
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, UpdateCategory};
@@ -80,61 +80,6 @@ pub async fn delete<'r>(
 
         e.into()
     })?;
-
-    Ok(())
-}
-
-#[post("/<id>/site", format = "json", data = "<site>")]
-pub async fn add_site(
-    id: &str,
-    site: Json<CreateSite<'_>>,
-    mut db: Connection<Db>,
-    _jwt: JwtMiddleware,
-) -> Result<(), Status> {
-    category::add_site(id, site.deref(), &mut db)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-
-            e.into()
-        })?;
-
-    Ok(())
-}
-
-#[put("/<id>/site/<site_id>", format = "json", data = "<site>")]
-pub async fn update_site<'r>(
-    id: &'r str,
-    site_id: &'r str,
-    site: Json<UpdateSite<'r>>,
-    mut db: Connection<Db>,
-    _jwt: JwtMiddleware,
-) -> Result<(), Status> {
-    modify_site(id, site_id, site.deref(), &mut db)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-
-            e.into()
-        })?;
-
-    Ok(())
-}
-
-#[delete("/<id>/site/<site_id>")]
-pub async fn delete_site(
-    id: &str,
-    site_id: &str,
-    mut db: Connection<Db>,
-    _jwt: JwtMiddleware,
-) -> Result<(), Status> {
-    category::delete_site(id, site_id, &mut db)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
-
-            e.into()
-        })?;
 
     Ok(())
 }

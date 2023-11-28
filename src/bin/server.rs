@@ -68,13 +68,11 @@ async fn main() -> Result<(), rocket::Error> {
                 category::update,
                 category::add,
                 category::delete,
-                category::add_site,
                 category::get_sites,
-                category::update_site,
-                category::delete_site,
             ],
         )
         .mount("/api/sites", routes![site::all])
+        .mount("/api/site", routes![site::add, site::update, site::delete])
         .mount("/api/upload", routes![upload])
         .launch()
         .await?;
