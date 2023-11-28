@@ -10,7 +10,7 @@ use crate::response;
 use crate::response::WithTotal;
 use crate::Db;
 
-pub async fn get_all_categories(
+pub async fn get_categories(
     page: i64,
     size: i64,
     db: &mut Connection<Db>,

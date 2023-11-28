@@ -7,7 +7,7 @@ use rocket::{delete, get, post, put};
 use rocket_db_pools::Connection;
 
 use crate::handlers::category::{
-    self, add_category, delete_category, get_all_categories, modify_site, update_category,
+    self, add_category, delete_category, get_categories, modify_site, update_category,
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, UpdateCategory};
@@ -15,7 +15,6 @@ use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::category::Category;
 use crate::response::site::Site;
 use crate::response::WithTotal;
-use crate::state::AppState;
 use crate::Db;
 
 #[get("/?<page>&<size>")]
@@ -28,13 +27,13 @@ pub async fn all(
 
     let size = size.unwrap_or(10);
 
-    let categories = get_all_categories(page, size, &mut db).await.map_err(|e| {
+    let result = get_categories(page, size, &mut db).await.map_err(|e| {
         error!("{}", e);
 
         e.into()
     })?;
 
-    Ok(Json(categories))
+    Ok(Json(result))
 }
 
 #[put("/<id>", format = "json", data = "<category>")]

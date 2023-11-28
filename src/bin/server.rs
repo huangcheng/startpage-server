@@ -1,10 +1,9 @@
 use dotenvy::dotenv;
 use rocket::{self, routes};
 use rocket_db_pools::Database;
-use sqlx::MySqlPool;
 
 use startpage::routes::upload::upload;
-use startpage::routes::{auth, category, user};
+use startpage::routes::{auth, category, site, user};
 use startpage::state::AppState;
 use startpage::utils::calculate_expires;
 use startpage::Db;
@@ -75,6 +74,7 @@ async fn main() -> Result<(), rocket::Error> {
                 category::delete_site,
             ],
         )
+        .mount("/api/sites", routes![site::all])
         .mount("/api/upload", routes![upload])
         .launch()
         .await?;
