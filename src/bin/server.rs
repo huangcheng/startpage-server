@@ -1,10 +1,11 @@
 use rocket::fairing::AdHoc;
 use rocket::figment::providers::{Format, Serialized, Toml};
 use rocket::figment::{Figment, Profile};
+use rocket::fs::FileServer;
 use rocket::{self, routes};
 use rocket_db_pools::Database;
-use startpage::config::Config;
 
+use startpage::config::Config;
 use startpage::routes::upload::upload;
 use startpage::routes::{auth, category, site, user};
 use startpage::state::AppState;
@@ -55,6 +56,16 @@ async fn main() -> Result<(), rocket::Error> {
     let jwt_expiration =
         calculate_expires(&config.jwt.expires_in).expect("Failed to parse duration");
 
+    let upload_url = figment
+        .extract::<Config>()
+        .expect("Failed to extract app config")
+        .upload_url;
+
+    let upload_dir = figment
+        .extract::<Config>()
+        .expect("Failed to extract app config")
+        .upload_dir;
+
     let state = AppState { jwt_expiration };
 
     let _rok = rocket::custom(figment)
@@ -78,6 +89,7 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/api/sites", routes![site::all])
         .mount("/api/site", routes![site::add, site::update, site::delete])
         .mount("/api/upload", routes![upload])
+        .mount(upload_url, FileServer::from(upload_dir))
         .attach(AdHoc::config::<Config>())
         .launch()
         .await?;

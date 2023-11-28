@@ -59,6 +59,18 @@ pub fn calculate_expires(expires: &str) -> Result<i64, ServiceError> {
     Ok((now + offset).timestamp())
 }
 
+pub fn standardize_url<'r>(url: &'r str, upload_url: &'r str) -> Option<String> {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        return Some(String::from(url));
+    } else if url.starts_with(upload_url) {
+        return url
+            .strip_prefix(format!("{}/", upload_url).as_str())
+            .map(String::from);
+    }
+
+    Some(String::from(url))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -92,6 +104,39 @@ mod test {
         assert_eq!(
             calculate_expires("1y").unwrap(),
             (Utc::now() + Duration::days(365)).timestamp()
+        );
+    }
+
+    #[test]
+    fn test_standardize_url() {
+        assert_eq!(
+            standardize_url(
+                "https://avatars.githubusercontent.com/u/2804393?v=4",
+                "/upload"
+            ),
+            Some(String::from(
+                "https://avatars.githubusercontent.com/u/2804393?v=4"
+            ))
+        );
+
+        assert_eq!(
+            standardize_url(
+                "/upload/8107ca46c91e1372377b573f912eae1a83cbf1de4e117a33a0daf7d2638a40d2.png",
+                "/upload"
+            ),
+            Some(String::from(
+                "8107ca46c91e1372377b573f912eae1a83cbf1de4e117a33a0daf7d2638a40d2.png"
+            ))
+        );
+
+        assert_eq!(
+            standardize_url(
+                "8107ca46c91e1372377b573f912eae1a83cbf1de4e117a33a0daf7d2638a40d2.png",
+                "/upload"
+            ),
+            Some(String::from(
+                "8107ca46c91e1372377b573f912eae1a83cbf1de4e117a33a0daf7d2638a40d2.png"
+            ))
         );
     }
 }

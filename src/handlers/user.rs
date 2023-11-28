@@ -8,8 +8,9 @@ use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response;
 use crate::{models, Db};
 
-pub async fn get_user_by_username(
+pub async fn get_user(
     username: &str,
+    upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<response::user::User, ServiceError> {
     let user = query_as::<_, models::user::User>("SELECT * FROM user WHERE username = ?")
@@ -17,10 +18,21 @@ pub async fn get_user_by_username(
         .fetch_one(&mut ***db)
         .await?;
 
+    let avatar = match user.avatar {
+        Some(avatar) => {
+            if avatar.starts_with("http") || avatar.starts_with("https") {
+                Some(avatar)
+            } else {
+                Some(format!("{}/{}", upload_url, avatar))
+            }
+        }
+        None => None,
+    };
+
     Ok(response::user::User {
         username: user.username,
         nickname: user.nickname,
-        avatar: user.avatar,
+        avatar,
         email: user.email,
     })
 }

@@ -1,2 +1,11 @@
+[default]
+upload_dir = "upload/"
+upload_url = "/upload"
+
 [default.databases.startpage]
 url = "mysql://startpage:startpage@127.0.0.1/startpage"
+
+[default.jwt]
+# you can generate a secret with `openssl rand -hex 32`
+secret = ""
+expires_in = "1w"

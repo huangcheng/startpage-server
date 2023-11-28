@@ -1,10 +1,12 @@
-use crate::config::Config;
+use log::error;
 use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{post, FromForm, State};
 
+use crate::config::Config;
+use crate::handlers;
 use crate::middlewares::JwtMiddleware;
 
 #[derive(FromForm)]
@@ -19,6 +21,13 @@ pub async fn upload(
     config: &State<Config>,
     _jwt: JwtMiddleware,
 ) -> Result<Json<String>, Status> {
-    println!("{:?}", data.file.content_type().unwrap().extension());
-    Ok(Json(String::from("Hello")))
+    let result = handlers::upload::upload(&data.file, &config.upload_dir)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.into()
+        })?;
+
+    Ok(Json(format!("{}/{}", config.upload_url, result)))
 }

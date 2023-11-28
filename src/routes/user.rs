@@ -1,22 +1,29 @@
-use crate::Db;
+use std::ops::Deref;
+
 use log::error;
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::{get, put};
+use rocket::{get, put, State};
 use rocket_db_pools::Connection;
-use std::ops::Deref;
 
-use crate::handlers::user::{get_user_by_username, update_user, update_user_password};
+use crate::config::Config;
+use crate::handlers::user::{get_user, update_user, update_user_password};
 use crate::middlewares::JwtMiddleware;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response::auth::Logout;
 use crate::response::user::User;
+use crate::utils::standardize_url;
+use crate::Db;
 
 #[get("/")]
-pub async fn me(mut db: Connection<Db>, jwt: JwtMiddleware) -> Result<Json<User>, Status> {
+pub async fn me(
+    mut db: Connection<Db>,
+    config: &State<Config>,
+    jwt: JwtMiddleware,
+) -> Result<Json<User>, Status> {
     let username = jwt.username;
 
-    let user = get_user_by_username(&username, &mut db)
+    let user = get_user(&username, &config.upload_url, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);
@@ -28,19 +35,26 @@ pub async fn me(mut db: Connection<Db>, jwt: JwtMiddleware) -> Result<Json<User>
 }
 
 #[put("/<username>", format = "json", data = "<user>")]
-pub async fn update<'r>(
-    username: &'r str,
-    user: Json<UpdateUser<'r>>,
+pub async fn update(
+    username: &'_ str,
+    user: Json<UpdateUser<'_>>,
+    config: &State<Config>,
     mut db: Connection<Db>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
-    update_user(username, user.deref(), &mut db)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
+    let mut user = user.into_inner();
+    let avatar = match user.avatar {
+        Some(avatar) => standardize_url(avatar, &config.upload_url),
+        None => None,
+    };
 
-            e.into()
-        })?;
+    user.avatar = avatar.as_deref();
+
+    update_user(username, &user, &mut db).await.map_err(|e| {
+        error!("{}", e);
+
+        e.into()
+    })?;
 
     Ok(())
 }

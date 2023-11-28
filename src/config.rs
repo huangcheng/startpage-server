@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,4 +20,6 @@ impl Default for Jwt {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub jwt: Jwt,
+    pub upload_dir: PathBuf,
+    pub upload_url: String,
 }
