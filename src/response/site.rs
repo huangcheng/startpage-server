@@ -8,5 +8,4 @@ pub struct Site {
     pub url: String,
     pub description: String,
     pub icon: String,
-    pub category: String,
 }

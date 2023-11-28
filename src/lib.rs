@@ -1,4 +1,6 @@
+use rocket_db_pools::Database;
 use serde::{Deserialize, Serialize};
+use sqlx::MySqlPool;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -6,6 +8,10 @@ struct Claims {
     pub company: String,
     pub exp: usize,
 }
+
+#[derive(Database)]
+#[database("startpage")]
+pub struct Db(MySqlPool);
 
 pub mod errors;
 pub mod handlers;

@@ -1,23 +1,25 @@
 use bcrypt::verify;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use log::error;
+use rocket_db_pools::Connection;
 use sqlx::query_as;
 
 use crate::errors::ServiceError;
-use crate::models;
 use crate::request;
 use crate::state::AppState;
 use crate::Claims;
+use crate::{models, Db};
 
 pub async fn login(
     user: &request::auth::User<'_>,
     state: &AppState,
+    db: &mut Connection<Db>,
 ) -> Result<String, ServiceError> {
     let record = query_as::<_, models::user::User>(
         r#"SELECT username, nickname, password, avatar, email FROM user WHERE username = ?"#,
     )
     .bind(user.username)
-    .fetch_one(&state.pool)
+    .fetch_one(&mut ***db)
     .await
     .map_err(|e| {
         error!("Failed to query user: {}", e);
@@ -28,7 +30,7 @@ pub async fn login(
     let valid = verify(user.password, &record.password).map_err(|e| {
         error!("Failed to verify password: {}", e);
 
-        ServiceError::InternalServerError
+        ServiceError::Unauthorized
     })?;
 
     if valid {

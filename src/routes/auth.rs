@@ -5,20 +5,22 @@ use rocket::http::Status;
 use rocket::post;
 use rocket::serde::json::Json;
 use rocket::State;
+use rocket_db_pools::Connection;
 
-use crate::handlers;
 use crate::middlewares::JwtMiddleware;
 use crate::request;
 use crate::response;
 use crate::response::auth::Logout;
 use crate::state::AppState;
+use crate::{handlers, Db};
 
 #[post("/login", format = "json", data = "<user>")]
 pub async fn login(
     user: Json<request::auth::User<'_>>,
     state: &State<AppState>,
+    mut db: Connection<Db>,
 ) -> Result<response::auth::JwtToken, Status> {
-    let token = handlers::auth::login(user.deref(), state)
+    let token = handlers::auth::login(user.deref(), state, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);

@@ -1,10 +1,13 @@
 use dotenvy::dotenv;
 use rocket::{self, routes};
+use rocket_db_pools::Database;
 use sqlx::MySqlPool;
 
+use startpage::routes::upload::upload;
 use startpage::routes::{auth, category, user};
 use startpage::state::AppState;
 use startpage::utils::calculate_expires;
+use startpage::Db;
 
 fn drop_rocket(meta: &log::Metadata) -> bool {
     let name = meta.target();
@@ -40,26 +43,20 @@ async fn main() -> Result<(), rocket::Error> {
 
     dotenv().expect("Failed to read .env file");
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-
     let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET");
 
     let jwt_expire_in = std::env::var("JWT_EXPIRES_IN").expect("JWT_EXPIRES_IN");
 
     let jwt_expiration = calculate_expires(&jwt_expire_in).expect("Failed to calculate expires");
 
-    let pool = MySqlPool::connect(&database_url)
-        .await
-        .expect("Failed to connect to database");
-
     let state = AppState {
-        pool,
         jwt_secret,
         jwt_expiration,
     };
 
     let _rok = rocket::build()
         .manage(state)
+        .attach(Db::init())
         .mount(
             "/api/user",
             routes![user::me, user::update, user::update_password],
@@ -78,6 +75,7 @@ async fn main() -> Result<(), rocket::Error> {
                 category::delete_site,
             ],
         )
+        .mount("/api/upload", routes![upload])
         .launch()
         .await?;
 

@@ -1,21 +1,20 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
 use log::error;
-use rocket::State;
+use rocket_db_pools::Connection;
 use sqlx::{query, query_as};
 
 use crate::errors::ServiceError;
-use crate::models;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response;
-use crate::state::AppState;
+use crate::{models, Db};
 
 pub async fn get_user_by_username(
     username: &str,
-    state: &State<AppState>,
+    db: &mut Connection<Db>,
 ) -> Result<response::user::User, ServiceError> {
     let user = query_as::<_, models::user::User>("SELECT * FROM user WHERE username = ?")
         .bind(username)
-        .fetch_one(&state.pool)
+        .fetch_one(&mut ***db)
         .await?;
 
     Ok(response::user::User {
@@ -29,13 +28,13 @@ pub async fn get_user_by_username(
 pub async fn update_user(
     name: &'_ str,
     user: &UpdateUser<'_>,
-    state: &State<AppState>,
+    db: &mut Connection<Db>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, models::user::User>(
         "SELECT username, password, email, avatar, nickname FROM user WHERE username = ?",
     )
     .bind(name)
-    .fetch_one(&state.pool)
+    .fetch_one(&mut ***db)
     .await?;
 
     if !verify(user.password, &record.password).unwrap() {
@@ -68,7 +67,7 @@ pub async fn update_user(
         .bind(&avatar)
         .bind(&nickname)
         .bind(name)
-        .execute(&state.pool)
+        .execute(&mut ***db)
         .await?;
 
     Ok(())
@@ -77,13 +76,13 @@ pub async fn update_user(
 pub async fn update_user_password(
     name: &'_ str,
     user: &UpdatePassword<'_>,
-    state: &State<AppState>,
+    db: &mut Connection<Db>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, models::user::User>(
         "SELECT username, password, email, avatar, nickname FROM user WHERE username = ?",
     )
     .bind(name)
-    .fetch_one(&state.pool)
+    .fetch_one(&mut ***db)
     .await?;
 
     let valid = verify(user.password, &record.password).map_err(|e| {
@@ -101,7 +100,7 @@ pub async fn update_user_password(
     query("UPDATE user SET password = ? WHERE username = ?")
         .bind(&hashed_password)
         .bind(name)
-        .execute(&state.pool)
+        .execute(&mut ***db)
         .await?;
 
     Ok(())
