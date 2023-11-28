@@ -49,6 +49,10 @@ pub async fn upload(file: &TempFile<'_>, path: &PathBuf) -> Result<String, Servi
 
     let target = path.join(result.clone());
 
+    if target.exists() {
+        return Ok(result);
+    }
+
     fs::copy(tmp_file, &target).map_err(|e| {
         error!("Failed to copy file: {}", e);
 
