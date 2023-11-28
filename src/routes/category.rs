@@ -11,7 +11,6 @@ use crate::handlers::category::{
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, UpdateCategory};
-use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::category::Category;
 use crate::response::site::Site;
 use crate::response::WithTotal;

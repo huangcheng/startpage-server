@@ -1,6 +1,9 @@
-use dotenvy::dotenv;
+use rocket::fairing::AdHoc;
+use rocket::figment::providers::{Format, Serialized, Toml};
+use rocket::figment::{Figment, Profile};
 use rocket::{self, routes};
 use rocket_db_pools::Database;
+use startpage::config::Config;
 
 use startpage::routes::upload::upload;
 use startpage::routes::{auth, category, site, user};
@@ -40,20 +43,21 @@ async fn main() -> Result<(), rocket::Error> {
         setup_logger().expect("Failed to setup logger");
     }
 
-    dotenv().expect("Failed to read .env file");
+    let figment = Figment::from(rocket::Config::default())
+        .merge(Serialized::defaults(Config::default()))
+        .merge(Toml::file("Rocket.toml").nested())
+        .select(Profile::from_env_or("ROCKET_PROFILE", "default"));
 
-    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET");
+    let config = figment
+        .extract::<Config>()
+        .expect("Failed to extract app config");
 
-    let jwt_expire_in = std::env::var("JWT_EXPIRES_IN").expect("JWT_EXPIRES_IN");
+    let jwt_expiration =
+        calculate_expires(&config.jwt.expires_in).expect("Failed to parse duration");
 
-    let jwt_expiration = calculate_expires(&jwt_expire_in).expect("Failed to calculate expires");
+    let state = AppState { jwt_expiration };
 
-    let state = AppState {
-        jwt_secret,
-        jwt_expiration,
-    };
-
-    let _rok = rocket::build()
+    let _rok = rocket::custom(figment)
         .manage(state)
         .attach(Db::init())
         .mount(
@@ -74,6 +78,7 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/api/sites", routes![site::all])
         .mount("/api/site", routes![site::add, site::update, site::delete])
         .mount("/api/upload", routes![upload])
+        .attach(AdHoc::config::<Config>())
         .launch()
         .await?;
 

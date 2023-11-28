@@ -1,9 +1,9 @@
-use rocket::form::DataField;
+use crate::config::Config;
 use rocket::form::Form;
 use rocket::fs::TempFile;
-use rocket::http::{ContentType, Status};
+use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::{post, Data, FromForm};
+use rocket::{post, FromForm, State};
 
 use crate::middlewares::JwtMiddleware;
 
@@ -14,7 +14,11 @@ pub struct Upload<'r> {
 }
 
 #[post("/", data = "<data>")]
-pub async fn upload(data: Form<Upload<'_>>, _jwt: JwtMiddleware) -> Result<Json<String>, Status> {
+pub async fn upload(
+    data: Form<Upload<'_>>,
+    config: &State<Config>,
+    _jwt: JwtMiddleware,
+) -> Result<Json<String>, Status> {
     println!("{:?}", data.file.content_type().unwrap().extension());
     Ok(Json(String::from("Hello")))
 }

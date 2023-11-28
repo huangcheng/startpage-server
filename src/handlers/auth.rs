@@ -4,6 +4,7 @@ use log::error;
 use rocket_db_pools::Connection;
 use sqlx::query_as;
 
+use crate::config::Config;
 use crate::errors::ServiceError;
 use crate::request;
 use crate::state::AppState;
@@ -13,6 +14,7 @@ use crate::{models, Db};
 pub async fn login(
     user: &request::auth::User<'_>,
     state: &AppState,
+    config: &Config,
     db: &mut Connection<Db>,
 ) -> Result<String, ServiceError> {
     let record = query_as::<_, models::user::User>(
@@ -43,7 +45,7 @@ pub async fn login(
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
+            &EncodingKey::from_secret(config.jwt.secret.as_bytes()),
         )
         .map_err(|e| {
             error!("Failed to encode token: {}", e);

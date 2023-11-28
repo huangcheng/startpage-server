@@ -3,9 +3,7 @@ use sqlx::{query, query_as, Row};
 
 use crate::errors::ServiceError;
 use crate::models::category::Category;
-use crate::models::site::Site;
 use crate::request::category::{CreateCategory, UpdateCategory};
-use crate::request::site::{CreateSite, UpdateSite};
 use crate::response;
 use crate::response::WithTotal;
 use crate::Db;

@@ -7,6 +7,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_db_pools::Connection;
 
+use crate::config::Config;
 use crate::middlewares::JwtMiddleware;
 use crate::request;
 use crate::response;
@@ -18,9 +19,10 @@ use crate::{handlers, Db};
 pub async fn login(
     user: Json<request::auth::User<'_>>,
     state: &State<AppState>,
+    config: &State<Config>,
     mut db: Connection<Db>,
 ) -> Result<response::auth::JwtToken, Status> {
-    let token = handlers::auth::login(user.deref(), state, &mut db)
+    let token = handlers::auth::login(user.deref(), state, config, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);
