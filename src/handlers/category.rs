@@ -11,6 +11,7 @@ use crate::Db;
 pub async fn get_categories(
     page: i64,
     size: i64,
+    upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<WithTotal<response::category::Category>, ServiceError> {
     let total = query(r#"SELECT COUNT(id) AS count FROM category"#)
@@ -19,7 +20,7 @@ pub async fn get_categories(
         .get::<i64, &str>("count");
 
     let categories = sqlx::query_as::<_, Category>(
-        r#"SELECT id, name, description, icon, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
+        r#"SELECT id, name, description, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
     )
     .bind(size)
     .bind(page * size)
@@ -29,8 +30,23 @@ pub async fn get_categories(
     Ok(WithTotal {
         total,
         data: categories
-            .into_iter()
-            .map(|category| category.into())
+            .iter()
+            .map(|category| {
+                let icon = category.icon.clone();
+
+                let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                    icon
+                } else {
+                    format!("{}/{}", upload_url, icon)
+                };
+
+                response::category::Category {
+                    id: category.id,
+                    name: category.name.clone(),
+                    description: category.description.clone(),
+                    icon,
+                }
+            })
             .collect(),
     })
 }
@@ -39,7 +55,7 @@ pub async fn update_category<'r>(
     id: &'r str,
     category: &'r UpdateCategory<'r>,
     db: &mut Connection<Db>,
-) -> Result<Category, ServiceError> {
+) -> Result<(), ServiceError> {
     let record = query_as::<_, Category>(
         r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
     )
@@ -61,24 +77,28 @@ pub async fn update_category<'r>(
         None => record.description,
     };
 
+    let icon = match category.icon {
+        Some(icon) => String::from(icon),
+        None => record.icon,
+    };
+
     let record = Category {
         id: record.id,
         name,
         description,
-        icon: record.icon,
+        icon,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
 
-    query(r#"UPDATE category SET name = ?, description = ?, icon = ? WHERE id = ?"#)
+    query(r#"UPDATE category SET name = ?, description = ? WHERE id = ?"#)
         .bind(&record.name)
         .bind(&record.description)
-        .bind(&record.icon)
         .bind(record.id)
         .execute(&mut ***db)
         .await?;
 
-    Ok(record)
+    Ok(())
 }
 
 pub async fn add_category(
@@ -116,6 +136,7 @@ pub async fn delete_category(id: &str, db: &mut Connection<Db>) -> Result<(), Se
 
 pub async fn get_sites(
     category_id: &str,
+    upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<Vec<response::site::Site>, ServiceError> {
     let sites = query_as::<_, response::site::Site>(
@@ -125,5 +146,24 @@ pub async fn get_sites(
     .fetch_all(&mut ***db)
     .await?;
 
-    Ok(sites)
+    Ok(sites
+        .iter()
+        .map(|site| {
+            let icon = site.icon.clone();
+
+            let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                icon
+            } else {
+                format!("{}/{}", upload_url, icon)
+            };
+
+            response::site::Site {
+                id: site.id,
+                name: site.name.clone(),
+                url: site.url.clone(),
+                description: site.description.clone(),
+                icon,
+            }
+        })
+        .collect())
 }

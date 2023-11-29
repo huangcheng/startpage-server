@@ -43,6 +43,7 @@ pub async fn update(
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut user = user.into_inner();
+
     let avatar = match user.avatar {
         Some(avatar) => standardize_url(avatar, &config.upload_url),
         None => None,

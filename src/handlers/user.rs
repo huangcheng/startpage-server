@@ -16,17 +16,16 @@ pub async fn get_user(
     let user = query_as::<_, models::user::User>("SELECT * FROM user WHERE username = ?")
         .bind(username)
         .fetch_one(&mut ***db)
-        .await?;
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => ServiceError::Unauthorized,
+            _ => ServiceError::InternalServerError,
+        })?;
 
-    let avatar = match user.avatar {
-        Some(avatar) => {
-            if avatar.starts_with("http") || avatar.starts_with("https") {
-                Some(avatar)
-            } else {
-                Some(format!("{}/{}", upload_url, avatar))
-            }
-        }
-        None => None,
+    let avatar = if user.avatar.starts_with("http") || user.avatar.starts_with("https") {
+        user.avatar
+    } else {
+        format!("{}/{}", upload_url, user.avatar)
     };
 
     Ok(response::user::User {
@@ -64,7 +63,7 @@ pub async fn update_user(
     };
 
     let avatar = match user.avatar {
-        Some(avatar) => Some(String::from(avatar)),
+        Some(avatar) => String::from(avatar),
         None => record.avatar,
     };
 

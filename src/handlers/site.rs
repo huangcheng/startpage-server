@@ -12,6 +12,7 @@ use crate::Db;
 pub async fn get_sites(
     page: i64,
     size: i64,
+    upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<WithTotal<SiteWithCategory>, ServiceError> {
     let count = query(r#"SELECT COUNT(id) AS count FROM site"#)
@@ -28,7 +29,27 @@ pub async fn get_sites(
 
     Ok(WithTotal {
         total: count,
-        data: sites,
+        data: sites
+            .iter()
+            .map(|site| {
+                let icon = site.icon.clone();
+
+                let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                    icon
+                } else {
+                    format!("{}/{}", upload_url, icon)
+                };
+
+                SiteWithCategory {
+                    id: site.id,
+                    name: site.name.clone(),
+                    url: site.url.clone(),
+                    icon,
+                    description: site.description.clone(),
+                    category: site.category.clone(),
+                }
+            })
+            .collect(),
     })
 }
 
