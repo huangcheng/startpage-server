@@ -20,7 +20,7 @@ pub async fn get_categories(
         .get::<i64, &str>("count");
 
     let categories = sqlx::query_as::<_, Category>(
-        r#"SELECT id, name, description, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
+        r#"SELECT id, name, description, icon, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
     )
     .bind(size)
     .bind(page * size)
@@ -105,9 +105,10 @@ pub async fn add_category(
     category: &CreateCategory<'_>,
     db: &mut Connection<Db>,
 ) -> Result<(), ServiceError> {
-    query(r#"INSERT INTO category (name, description) VALUES (?, ?)"#)
+    query(r#"INSERT INTO category (name, description, icon) VALUES (?, ?, ?)"#)
         .bind(category.name)
         .bind(category.description)
+        .bind(category.icon)
         .execute(&mut ***db)
         .await?;
 
