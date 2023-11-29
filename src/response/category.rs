@@ -7,6 +7,7 @@ pub struct Category {
     pub id: i64,
     pub name: String,
     pub description: String,
+    pub icon: String,
 }
 
 impl From<category::Category> for Category {
@@ -15,6 +16,7 @@ impl From<category::Category> for Category {
             id: category.id,
             name: category.name,
             description: category.description,
+            icon: category.icon,
         }
     }
 }

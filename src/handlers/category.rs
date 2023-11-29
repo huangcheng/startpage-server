@@ -19,7 +19,7 @@ pub async fn get_categories(
         .get::<i64, &str>("count");
 
     let categories = sqlx::query_as::<_, Category>(
-        r#"SELECT id, name, description, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
+        r#"SELECT id, name, description, icon, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
     )
     .bind(size)
     .bind(page * size)
@@ -41,7 +41,7 @@ pub async fn update_category<'r>(
     db: &mut Connection<Db>,
 ) -> Result<Category, ServiceError> {
     let record = query_as::<_, Category>(
-        r#"SELECT id, name, description, created_at, updated_at FROM category WHERE id = ?"#,
+        r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
     )
     .bind(id)
     .fetch_one(&mut ***db)
@@ -65,13 +65,15 @@ pub async fn update_category<'r>(
         id: record.id,
         name,
         description,
+        icon: record.icon,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
 
-    query(r#"UPDATE category SET name = ?, description = ? WHERE id = ?"#)
+    query(r#"UPDATE category SET name = ?, description = ?, icon = ? WHERE id = ?"#)
         .bind(&record.name)
         .bind(&record.description)
+        .bind(&record.icon)
         .bind(record.id)
         .execute(&mut ***db)
         .await?;

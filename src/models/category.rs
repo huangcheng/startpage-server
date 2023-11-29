@@ -7,6 +7,7 @@ pub struct Category {
     pub id: i64,
     pub name: String,
     pub description: String,
+    pub icon: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
