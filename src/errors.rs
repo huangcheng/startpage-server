@@ -21,6 +21,9 @@ pub enum ServiceError {
 
     #[display(fmt = "Bad request: {}", _0)]
     BadRequest(String),
+
+    #[display(fmt = "{}", _0)]
+    AlreadyExists(String),
 }
 
 impl From<sqlx::Error> for ServiceError {
@@ -56,6 +59,7 @@ impl ServiceError {
             ServiceError::Unauthorized => Status::Unauthorized,
             ServiceError::InternalServerError => Status::InternalServerError,
             ServiceError::BadRequest(_) => Status::BadRequest,
+            ServiceError::AlreadyExists(_) => Status::Conflict,
         }
     }
 }

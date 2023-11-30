@@ -1,7 +1,7 @@
 CREATE TABLE category
 (
     id          INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
-    name        VARCHAR(255)  NOT NULL,
+    name        VARCHAR(255)  NOT NULL UNIQUE,
     icon        VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,

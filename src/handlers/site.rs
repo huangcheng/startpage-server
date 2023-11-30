@@ -12,20 +12,49 @@ use crate::Db;
 pub async fn get_sites(
     page: i64,
     size: i64,
+    search: Option<&str>,
     upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<WithTotal<SiteWithCategory>, ServiceError> {
-    let count = query(r#"SELECT COUNT(id) AS count FROM site"#)
-        .fetch_one(&mut ***db)
-        .await?
-        .get::<i64, &str>("count");
+    let count = match search {
+        Some(search) => {
+            query(r#"SELECT COUNT(id) AS count FROM site WHERE NAME LIKE % OR description LIKE %"#)
+                .bind(format!("%{}%", search))
+                .bind(format!("%{}%", search))
+                .fetch_one(&mut ***db)
+                .await?
+                .get::<i64, &str>("count")
+        }
+        None => query(r#"SELECT COUNT(id) AS count FROM site"#)
+            .fetch_one(&mut ***db)
+            .await?
+            .get::<i64, &str>("count"),
+    };
 
-    let sites = query_as::<_, SiteWithCategory>(
-        r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, category.name AS category FROM site
+    let sites = match search {
+        Some(search) => query_as::<_, SiteWithCategory>(
+            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, category.name AS category FROM site
+                INNER JOIN category
+                INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE site.name LIKE % OR site.description LIKE % LIMIT ? OFFSET ?
+                "#,
+        )
+        .bind(format!("%{}%", search))
+        .bind(format!("%{}%", search))
+        .bind(size)
+        .bind(page * size)
+        .fetch_all(&mut ***db)
+        .await?,
+        None => query_as::<_, SiteWithCategory>(
+            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, category.name AS category FROM site
                 INNER JOIN category
                 INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id LIMIT ? OFFSET ?
                 "#,
-    ).bind(size).bind(page * size).fetch_all(&mut ***db).await?;
+        )
+        .bind(size)
+        .bind(page * size)
+        .fetch_all(&mut ***db)
+        .await?,
+    };
 
     Ok(WithTotal {
         total: count,
@@ -55,7 +84,7 @@ pub async fn get_sites(
 
 pub async fn add_site(site: &CreateSite<'_>, db: &mut Connection<Db>) -> Result<(), ServiceError> {
     query_as::<_, Category>(
-        r#"SELECT id, name, description, created_at, updated_at FROM category WHERE id = ?"#,
+        r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
     )
     .bind(site.category)
     .fetch_one(&mut ***db)

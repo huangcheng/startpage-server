@@ -14,10 +14,11 @@ use crate::response::WithTotal;
 use crate::utils::standardize_url;
 use crate::Db;
 
-#[get("/?<page>&<size>")]
+#[get("/?<page>&<size>&<search>")]
 pub async fn all(
     page: Option<i64>,
     size: Option<i64>,
+    search: Option<&str>,
     config: &State<Config>,
     mut db: Connection<Db>,
 ) -> Result<Json<WithTotal<SiteWithCategory>>, Status> {
@@ -25,7 +26,7 @@ pub async fn all(
 
     let size = size.unwrap_or(10);
 
-    let result = get_sites(page, size, &config.upload_url, &mut db)
+    let result = get_sites(page, size, search, &config.upload_url, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);
