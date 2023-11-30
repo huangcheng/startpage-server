@@ -99,7 +99,7 @@ pub async fn update_user_password(
     let valid = verify(user.password, &record.password).map_err(|e| {
         error!("{}", e);
 
-        ServiceError::Unauthorized
+        ServiceError::BadRequest(String::from("Invalid password"))
     })?;
 
     if !valid {
