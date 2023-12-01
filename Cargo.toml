@@ -1,6 +1,7 @@
 [package]
 name = "startpage-server"
 authors = ["HUANG Cheng <cheng@duck.com>"]
+repository = "https://github.com/huangcheng/startpage-server"
 version = "0.1.0"
 edition = "2021"
 
