@@ -44,12 +44,6 @@ impl From<std::num::ParseIntError> for ServiceError {
     }
 }
 
-impl Into<Status> for ServiceError {
-    fn into(self) -> Status {
-        self.status()
-    }
-}
-
 impl ServiceError {
     pub fn status(&self) -> Status {
         match self {

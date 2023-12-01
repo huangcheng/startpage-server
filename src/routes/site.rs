@@ -31,7 +31,7 @@ pub async fn all(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Json(result))
@@ -49,7 +49,7 @@ pub async fn add(
     let icon = standardize_url(site.icon, &config.upload_url);
 
     let icon = match icon {
-        Some(icon) => String::from(icon),
+        Some(icon) => icon,
         None => String::from(site.icon),
     };
 
@@ -58,7 +58,7 @@ pub async fn add(
     site::add_site(&site, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
@@ -84,7 +84,7 @@ pub async fn update<'r>(
     site::update_site(id, &site, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
@@ -95,7 +95,7 @@ pub async fn delete(id: &str, mut db: Connection<Db>, _jwt: JwtMiddleware) -> Re
     site::delete_site(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())

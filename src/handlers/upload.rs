@@ -1,6 +1,6 @@
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::Path;
 
 use log::error;
 use rocket::fs::TempFile;
@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::errors::ServiceError;
 
-pub async fn upload(file: &TempFile<'_>, path: &PathBuf) -> Result<String, ServiceError> {
+pub async fn upload(file: &TempFile<'_>, path: &Path) -> Result<String, ServiceError> {
     let content_type = match file.content_type() {
         Some(content_type) => content_type,
         None => {

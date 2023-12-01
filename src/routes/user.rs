@@ -28,7 +28,7 @@ pub async fn me(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Json(user))
@@ -54,7 +54,7 @@ pub async fn update(
     update_user(username, &user, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
@@ -72,7 +72,7 @@ pub async fn update_password<'r>(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Logout)

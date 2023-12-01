@@ -33,7 +33,7 @@ pub async fn all(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Json(result))
@@ -59,7 +59,7 @@ pub async fn update<'r>(
     update_category(id, &category, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
@@ -77,7 +77,7 @@ pub async fn add<'r>(
     let icon = standardize_url(category.icon, &config.upload_url);
 
     let icon = match icon {
-        Some(icon) => String::from(icon),
+        Some(icon) => icon,
         None => String::from(category.icon),
     };
 
@@ -86,22 +86,18 @@ pub async fn add<'r>(
     add_category(&category, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
 }
 
 #[delete("/<id>")]
-pub async fn delete<'r>(
-    id: &'r str,
-    mut db: Connection<Db>,
-    _jwt: JwtMiddleware,
-) -> Result<(), Status> {
+pub async fn delete(id: &str, mut db: Connection<Db>, _jwt: JwtMiddleware) -> Result<(), Status> {
     delete_category(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 
-        e.into()
+        e.status()
     })?;
 
     Ok(())
@@ -118,7 +114,7 @@ pub async fn get_sites(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Json(sites))

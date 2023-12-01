@@ -27,7 +27,7 @@ pub async fn login(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(response::auth::JwtToken { token })

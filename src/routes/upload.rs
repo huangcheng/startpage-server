@@ -26,7 +26,7 @@ pub async fn upload(
         .map_err(|e| {
             error!("{}", e);
 
-            e.into()
+            e.status()
         })?;
 
     Ok(Json(format!("{}/{}", config.upload_url, result)))
