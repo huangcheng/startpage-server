@@ -33,7 +33,7 @@ This is this the backend service of the project. You can find the frontend [here
 ### Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/huangcheng/startpage-server 
+git clone https://github.com/huangcheng/startpage-server.git
 ```
 2. Make sure you have the `sqlx-cli` installed with the `mysql` feature enabled:
 ```bash
