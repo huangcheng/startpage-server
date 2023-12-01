@@ -26,13 +26,13 @@ pub async fn login(
     .map_err(|e| {
         error!("Failed to query user: {}", e);
 
-        ServiceError::InternalServerError
+        ServiceError::BadRequest(String::from("Invalid username or password"))
     })?;
 
     let valid = verify(user.password, &record.password).map_err(|e| {
         error!("Failed to verify password: {}", e);
 
-        ServiceError::Unauthorized
+        ServiceError::BadRequest(String::from("Invalid username or password"))
     })?;
 
     if valid {
@@ -55,6 +55,8 @@ pub async fn login(
 
         Ok(token)
     } else {
-        Err(ServiceError::Unauthorized)
+        Err(ServiceError::BadRequest(String::from(
+            "Invalid username or password",
+        )))
     }
 }

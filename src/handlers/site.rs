@@ -1,3 +1,4 @@
+use rocket::form::validate::Len;
 use rocket_db_pools::Connection;
 use sqlx::{query, query_as, Row};
 
@@ -129,22 +130,34 @@ pub async fn update_site(
     })?;
 
     let name = match site.name {
-        Some(name) => String::from(name),
+        Some(name) => match name.len() {
+            0 => record.name,
+            _ => String::from(name),
+        },
         None => record.name,
     };
 
     let url = match site.url {
-        Some(url) => String::from(url),
+        Some(url) => match url.len() {
+            0 => record.url,
+            _ => String::from(url),
+        },
         None => record.url,
     };
 
     let description = match site.description {
-        Some(description) => String::from(description),
+        Some(description) => match description.len() {
+            0 => record.description,
+            _ => String::from(description),
+        },
         None => record.description,
     };
 
     let icon = match site.icon {
-        Some(icon) => String::from(icon),
+        Some(icon) => match icon.len() {
+            0 => record.icon,
+            _ => String::from(icon),
+        },
         None => record.icon,
     };
 
