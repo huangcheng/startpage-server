@@ -103,13 +103,14 @@ pub async fn delete(id: &str, mut db: Connection<Db>, _jwt: JwtMiddleware) -> Re
     Ok(())
 }
 
-#[get("/<id>/sites")]
+#[get("/<id>/sites?<search>")]
 pub async fn get_sites(
     id: &str,
+    search: Option<&str>,
     config: &State<Config>,
     mut db: Connection<Db>,
 ) -> Result<Json<Vec<Site>>, Status> {
-    let sites = category::get_sites(id, &config.upload_url, &mut db)
+    let sites = category::get_sites(id, search, &config.upload_url, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);

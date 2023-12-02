@@ -181,15 +181,26 @@ pub async fn delete_category(id: &str, db: &mut Connection<Db>) -> Result<(), Se
 
 pub async fn get_sites(
     category_id: &str,
+    search: Option<&str>,
     upload_url: &str,
     db: &mut Connection<Db>,
 ) -> Result<Vec<response::site::Site>, ServiceError> {
-    let sites = query_as::<_, response::site::Site>(
-        r#"SELECT id, name, url, description, icon FROM site WHERE id IN (SELECT site_id FROM category_site WHERE category_id = ?)"#,
-    )
-    .bind(category_id)
-    .fetch_all(&mut ***db)
-    .await?;
+    let sites = match search {
+        Some(search) => query_as::<_, response::site::Site>(
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? AND (site.name LIKE ? OR site.description LIKE ?)"#,
+        )
+        .bind(category_id)
+        .bind(format!("%{}%", search))
+        .bind(format!("%{}%", search))
+        .fetch_all(&mut ***db)
+        .await?,
+        None => query_as::<_, response::site::Site>(
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ?"#,
+        )
+        .bind(category_id)
+        .fetch_all(&mut ***db)
+        .await?,
+    };
 
     Ok(sites
         .iter()
