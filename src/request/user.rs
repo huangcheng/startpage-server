@@ -3,7 +3,6 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct UpdateUser<'r> {
     pub username: Option<&'r str>,
-    pub password: &'r str,
     pub email: Option<&'r str>,
     pub avatar: Option<&'r str>,
     pub nickname: Option<&'r str>,

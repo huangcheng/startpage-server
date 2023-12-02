@@ -48,10 +48,6 @@ pub async fn update_user(
     .fetch_one(&mut ***db)
     .await?;
 
-    if !verify(user.password, &record.password).unwrap() {
-        return Err(ServiceError::Unauthorized);
-    }
-
     let username = match user.username {
         Some(username) => String::from(username),
         None => record.username,
