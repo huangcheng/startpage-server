@@ -6,14 +6,14 @@ use crate::models::category::Category;
 use crate::request::category::{CreateCategory, UpdateCategory};
 use crate::response;
 use crate::response::WithTotal;
-use crate::Db;
+use crate::MySQLDb;
 
 pub async fn get_categories(
     page: i64,
     size: i64,
     search: Option<&str>,
     upload_url: &str,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<WithTotal<response::category::Category>, ServiceError> {
     let total = match search {
         Some(search) => query(
@@ -76,7 +76,7 @@ pub async fn get_categories(
 pub async fn update_category<'r>(
     id: &'r str,
     category: &'r UpdateCategory<'r>,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Category>(
         r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
@@ -135,7 +135,7 @@ pub async fn update_category<'r>(
 
 pub async fn add_category(
     category: &CreateCategory<'_>,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let id = query(r#"SELECT id FROM category WHERE name = ?"#)
         .bind(category.name)
@@ -159,7 +159,7 @@ pub async fn add_category(
     Ok(())
 }
 
-pub async fn delete_category(id: &str, db: &mut Connection<Db>) -> Result<(), ServiceError> {
+pub async fn delete_category(id: &str, db: &mut Connection<MySQLDb>) -> Result<(), ServiceError> {
     let sites_count =
         query(r#"SELECT COUNT(site_id) AS count FROM category_site WHERE category_id = ?"#)
             .bind(id)
@@ -183,7 +183,7 @@ pub async fn get_sites(
     category_id: &str,
     search: Option<&str>,
     upload_url: &str,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<Vec<response::site::Site>, ServiceError> {
     let sites = match search {
         Some(search) => query_as::<_, response::site::Site>(

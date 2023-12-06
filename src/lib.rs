@@ -1,3 +1,4 @@
+use rocket_db_pools::deadpool_redis;
 use rocket_db_pools::Database;
 use serde::{Deserialize, Serialize};
 use sqlx::MySqlPool;
@@ -11,7 +12,11 @@ struct Claims {
 
 #[derive(Database)]
 #[database("startpage")]
-pub struct Db(MySqlPool);
+pub struct MySQLDb(MySqlPool);
+
+#[derive(Database)]
+#[database("cache")]
+pub struct RedisDb(deadpool_redis::Pool);
 
 pub mod errors;
 pub mod handlers;

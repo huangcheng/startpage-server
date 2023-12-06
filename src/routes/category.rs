@@ -14,7 +14,7 @@ use crate::response::category::Category;
 use crate::response::site::Site;
 use crate::response::WithTotal;
 use crate::utils::standardize_url;
-use crate::Db;
+use crate::MySQLDb;
 
 #[get("/?<page>&<size>&<search>")]
 pub async fn all(
@@ -22,7 +22,7 @@ pub async fn all(
     size: Option<i64>,
     search: Option<&str>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
 ) -> Result<Json<WithTotal<Category>>, Status> {
     let page = page.unwrap_or(0);
 
@@ -44,7 +44,7 @@ pub async fn update<'r>(
     id: &'r str,
     category: Json<UpdateCategory<'r>>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut category = category.into_inner();
@@ -69,7 +69,7 @@ pub async fn update<'r>(
 pub async fn add<'r>(
     category: Json<CreateCategory<'r>>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut category = category.into_inner();
@@ -93,7 +93,11 @@ pub async fn add<'r>(
 }
 
 #[delete("/<id>")]
-pub async fn delete(id: &str, mut db: Connection<Db>, _jwt: JwtMiddleware) -> Result<(), Status> {
+pub async fn delete(
+    id: &str,
+    mut db: Connection<MySQLDb>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
     delete_category(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 
@@ -108,7 +112,7 @@ pub async fn get_sites(
     id: &str,
     search: Option<&str>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
 ) -> Result<Json<Vec<Site>>, Status> {
     let sites = category::get_sites(id, search, &config.upload_url, &mut db)
         .await

@@ -5,6 +5,9 @@ upload_url = "/upload"
 [default.databases.startpage]
 url = "mysql://startpage:startpage@127.0.0.1/startpage"
 
+[default.databases.cache]
+url = "redis://localhost:6379/0"
+
 [default.jwt]
 # you can generate a secret with `openssl rand -hex 32`
 secret = ""

@@ -1,3 +1,5 @@
+use chrono::Duration;
+
 pub struct AppState {
-    pub jwt_expiration: i64,
+    pub jwt_expiration: Duration,
 }

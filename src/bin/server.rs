@@ -9,8 +9,8 @@ use startpage::config::Config;
 use startpage::routes::upload::upload;
 use startpage::routes::{auth, category, site, user};
 use startpage::state::AppState;
-use startpage::utils::calculate_expires;
-use startpage::Db;
+use startpage::utils::parse_duration;
+use startpage::{MySQLDb, RedisDb};
 
 fn drop_rocket(meta: &log::Metadata) -> bool {
     let name = meta.target();
@@ -54,7 +54,7 @@ async fn main() -> Result<(), rocket::Error> {
         .expect("Failed to extract app config");
 
     let jwt_expiration =
-        calculate_expires(&config.jwt.expires_in).expect("Failed to parse duration");
+        parse_duration(&config.jwt.expires_in).expect("Failed to parse jwt expiration");
 
     let upload_url = figment
         .extract::<Config>()
@@ -70,7 +70,8 @@ async fn main() -> Result<(), rocket::Error> {
 
     let _rok = rocket::custom(figment)
         .manage(state)
-        .attach(Db::init())
+        .attach(MySQLDb::init())
+        .attach(RedisDb::init())
         .mount(
             "/api/user",
             routes![user::me, user::update, user::update_password],

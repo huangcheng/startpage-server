@@ -6,12 +6,12 @@ use sqlx::{query, query_as};
 use crate::errors::ServiceError;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response;
-use crate::{models, Db};
+use crate::{models, MySQLDb};
 
 pub async fn get_user(
     username: &str,
     upload_url: &str,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<response::user::User, ServiceError> {
     let user = query_as::<_, models::user::User>("SELECT * FROM user WHERE username = ?")
         .bind(username)
@@ -39,7 +39,7 @@ pub async fn get_user(
 pub async fn update_user(
     name: &'_ str,
     user: &UpdateUser<'_>,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, models::user::User>(
         "SELECT username, password, email, avatar, nickname FROM user WHERE username = ?",
@@ -83,7 +83,7 @@ pub async fn update_user(
 pub async fn update_user_password(
     name: &'_ str,
     user: &UpdatePassword<'_>,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, models::user::User>(
         "SELECT username, password, email, avatar, nickname FROM user WHERE username = ?",

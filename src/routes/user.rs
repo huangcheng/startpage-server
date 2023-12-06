@@ -4,6 +4,7 @@ use log::error;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{get, put, State};
+use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
@@ -13,11 +14,11 @@ use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response::auth::Logout;
 use crate::response::user::User;
 use crate::utils::standardize_url;
-use crate::Db;
+use crate::{MySQLDb, RedisDb};
 
 #[get("/")]
 pub async fn me(
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     config: &State<Config>,
     jwt: JwtMiddleware,
 ) -> Result<Json<User>, Status> {
@@ -39,7 +40,7 @@ pub async fn update(
     username: &'_ str,
     user: Json<UpdateUser<'_>>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut user = user.into_inner();
@@ -64,7 +65,8 @@ pub async fn update(
 pub async fn update_password<'r>(
     username: &'r str,
     password: Json<UpdatePassword<'r>>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
+    mut cache: Connection<RedisDb>,
     _jwt: JwtMiddleware,
 ) -> Result<Logout, Status> {
     update_user_password(username, password.deref(), &mut db)
@@ -74,6 +76,12 @@ pub async fn update_password<'r>(
 
             e.status()
         })?;
+
+    cache.del(String::from(username)).await.map_err(|e| {
+        error!("{}", e);
+
+        Status::InternalServerError
+    })?;
 
     Ok(Logout)
 }

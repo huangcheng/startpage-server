@@ -12,7 +12,7 @@ use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;
 use crate::utils::standardize_url;
-use crate::Db;
+use crate::MySQLDb;
 
 #[get("/?<page>&<size>&<search>")]
 pub async fn all(
@@ -20,7 +20,7 @@ pub async fn all(
     size: Option<i64>,
     search: Option<&str>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
 ) -> Result<Json<WithTotal<SiteWithCategory>>, Status> {
     let page = page.unwrap_or(0);
 
@@ -41,7 +41,7 @@ pub async fn all(
 pub async fn add(
     site: Json<CreateSite<'_>>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut site = site.into_inner();
@@ -69,7 +69,7 @@ pub async fn update<'r>(
     id: &'r str,
     site: Json<UpdateSite<'r>>,
     config: &State<Config>,
-    mut db: Connection<Db>,
+    mut db: Connection<MySQLDb>,
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     let mut site = site.into_inner();
@@ -91,7 +91,11 @@ pub async fn update<'r>(
 }
 
 #[delete("/<id>")]
-pub async fn delete(id: &str, mut db: Connection<Db>, _jwt: JwtMiddleware) -> Result<(), Status> {
+pub async fn delete(
+    id: &str,
+    mut db: Connection<MySQLDb>,
+    _jwt: JwtMiddleware,
+) -> Result<(), Status> {
     site::delete_site(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 

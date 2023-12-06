@@ -7,14 +7,14 @@ use crate::models::site::Site;
 use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;
-use crate::Db;
+use crate::MySQLDb;
 
 pub async fn get_sites(
     page: i64,
     size: i64,
     search: Option<&str>,
     upload_url: &str,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<WithTotal<SiteWithCategory>, ServiceError> {
     let count = match search {
         Some(search) => {
@@ -82,7 +82,10 @@ pub async fn get_sites(
     })
 }
 
-pub async fn add_site(site: &CreateSite<'_>, db: &mut Connection<Db>) -> Result<(), ServiceError> {
+pub async fn add_site(
+    site: &CreateSite<'_>,
+    db: &mut Connection<MySQLDb>,
+) -> Result<(), ServiceError> {
     query_as::<_, Category>(
         r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
     )
@@ -115,7 +118,7 @@ pub async fn add_site(site: &CreateSite<'_>, db: &mut Connection<Db>) -> Result<
 pub async fn update_site(
     site_id: &str,
     site: &UpdateSite<'_>,
-    db: &mut Connection<Db>,
+    db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Site>(
         r#"SELECT id, name, url, description, icon, created_at, updated_at FROM site WHERE id = ?"#,
@@ -201,7 +204,7 @@ pub async fn update_site(
     Ok(())
 }
 
-pub async fn delete_site(id: &str, db: &mut Connection<Db>) -> Result<(), ServiceError> {
+pub async fn delete_site(id: &str, db: &mut Connection<MySQLDb>) -> Result<(), ServiceError> {
     query(r#"DELETE FROM category_site WHERE site_id = ?"#)
         .bind(id)
         .execute(&mut ***db)
