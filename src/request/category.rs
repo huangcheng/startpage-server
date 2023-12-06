@@ -13,3 +13,9 @@ pub struct CreateCategory<'r> {
     pub description: &'r str,
     pub icon: &'r str,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SortCategory {
+    pub active: i64,
+    pub over: Option<i64>,
+}

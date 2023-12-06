@@ -85,6 +85,7 @@ async fn main() -> Result<(), rocket::Error> {
                 category::add,
                 category::delete,
                 category::get_sites,
+                category::sort,
             ],
         )
         .mount("/api/sites", routes![site::all])

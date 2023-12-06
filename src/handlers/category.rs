@@ -32,7 +32,7 @@ pub async fn get_categories(
 
     let categories = match search {
         Some(search) => query_as::<_, Category>(
-            r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE name LIKE ? OR description LIKE ? LIMIT ? OFFSET ?"#,
+            r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category WHERE name ORDER BY sort_order LIKE ? OR description LIKE ? LIMIT ? OFFSET ?"#,
         )
         .bind(format!("%{}%", search))
         .bind(format!("%{}%", search))
@@ -41,7 +41,7 @@ pub async fn get_categories(
         .fetch_all(&mut ***db)
         .await?,
         None => query_as::<_, Category>(
-            r#"SELECT id, name, description, icon, created_at, updated_at FROM category LIMIT ? OFFSET ?"#,
+            r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category ORDER BY sort_order LIMIT ? OFFSET ?"#,
         )
         .bind(size)
         .bind(page * size)
@@ -79,7 +79,7 @@ pub async fn update_category<'r>(
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Category>(
-        r#"SELECT id, name, description, icon, created_at, updated_at FROM category WHERE id = ?"#,
+        r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category WHERE id = ?"#,
     )
     .bind(id)
     .fetch_one(&mut ***db)
@@ -118,6 +118,7 @@ pub async fn update_category<'r>(
         name,
         description,
         icon,
+        sort_order: record.sort_order,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
@@ -149,10 +150,22 @@ pub async fn add_category(
         )));
     }
 
-    query(r#"INSERT INTO category (name, description, icon) VALUES (?, ?, ?)"#)
+    let order = match query(r#"SELECT MAX(sort_order) AS sort_order FROM category"#)
+        .fetch_one(&mut ***db)
+        .await
+    {
+        Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+            Ok(order) => order + 1,
+            Err(_) => 0,
+        },
+        Err(_) => 0,
+    };
+
+    query(r#"INSERT INTO category (name, description, icon, sort_order) VALUES (?, ?, ?, ?)"#)
         .bind(category.name)
         .bind(category.description)
         .bind(category.icon)
+        .bind(order)
         .execute(&mut ***db)
         .await?;
 
@@ -222,4 +235,32 @@ pub async fn get_sites(
             }
         })
         .collect())
+}
+
+pub async fn sort_categories(
+    active_id: i64,
+    over_id: Option<i64>,
+    db: &mut Connection<MySQLDb>,
+) -> Result<(), ServiceError> {
+    let over_id = match over_id {
+        Some(over_id) => Some(over_id),
+        None => {
+            let over_id = query(r#"SELECT id FROM category ORDER BY id DESC LIMIT 1"#)
+                .fetch_one(&mut ***db)
+                .await?
+                .get::<i64, &str>("id");
+
+            Some(over_id)
+        }
+    };
+
+    query(
+        r#"UPDATE category as c1, category as c2 SET c1.sort_order = c2.sort_order, c2.sort_order = c1.sort_order WHERE c1.id = ? AND c2.id = ?"#
+    )
+        .bind(active_id)
+        .bind(over_id)
+        .execute(&mut ***db)
+        .await?;
+
+    Ok(())
 }
