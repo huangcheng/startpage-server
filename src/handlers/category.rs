@@ -1,3 +1,4 @@
+use log::error;
 use rocket_db_pools::Connection;
 use sqlx::{query, query_as, Row};
 
@@ -200,7 +201,7 @@ pub async fn get_sites(
 ) -> Result<Vec<response::site::Site>, ServiceError> {
     let sites = match search {
         Some(search) => query_as::<_, response::site::Site>(
-            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? AND (site.name LIKE ? OR site.description LIKE ?)"#,
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? AND (site.name LIKE ? OR site.description LIKE ?) ORDER BY site.sort_order"#,
         )
         .bind(category_id)
         .bind(format!("%{}%", search))
@@ -208,7 +209,7 @@ pub async fn get_sites(
         .fetch_all(&mut ***db)
         .await?,
         None => query_as::<_, response::site::Site>(
-            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ?"#,
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? ORDER BY site.sort_order"#,
         )
         .bind(category_id)
         .fetch_all(&mut ***db)
@@ -261,6 +262,51 @@ pub async fn sort_categories(
         .bind(over_id)
         .execute(&mut ***db)
         .await?;
+
+    Ok(())
+}
+
+pub async fn sort_category_sites(
+    id: i64,
+    active_id: i64,
+    over_id: Option<i64>,
+    db: &mut Connection<MySQLDb>,
+) -> Result<(), ServiceError> {
+    query(r#"
+                SELECT site.id as site_id
+                FROM site
+                INNER JOIN category
+                INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id
+                WHERE site.id = ? AND category.id = ?;
+    "#)
+        .bind(active_id)
+        .bind(id)
+        .fetch_one(&mut ***db)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            ServiceError::BadRequest(String::from("Site not found"))
+        })?;
+
+    let over_id = match over_id {
+        Some(over_id) => over_id,
+        None => {
+            query(r#"SELECT site.id as site_id FROM site INNER JOIN category INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE category.id = ? ORDER BY site.id DESC LIMIT 1"#)
+                .bind(id)
+                .fetch_one(&mut ***db)
+                .await?
+                .get::<i64, &str>("site_id")
+        }
+    };
+
+    query(r#"
+                UPDATE site as s1, site as s2 SET s1.sort_order = s2.sort_order, s2.sort_order = s1.sort_order WHERE s1.id = ? AND s2.id = ?;
+            "#)
+                .bind(active_id)
+                .bind(over_id)
+                .execute(&mut ***db)
+                .await?;
 
     Ok(())
 }

@@ -9,6 +9,7 @@ pub struct Site {
     pub url: String,
     pub description: String,
     pub icon: String,
+    pub sort_order: i64,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }

@@ -6,7 +6,8 @@ use rocket_db_pools::Connection;
 
 use crate::config::Config;
 use crate::handlers::category::{
-    self, add_category, delete_category, get_categories, sort_categories, update_category,
+    self, add_category, delete_category, get_categories, sort_categories, sort_category_sites,
+    update_category,
 };
 use crate::middlewares::JwtMiddleware;
 use crate::request::category::{CreateCategory, SortCategory, UpdateCategory};
@@ -128,6 +129,23 @@ pub async fn get_sites(
 #[post("/sort", format = "json", data = "<data>")]
 pub async fn sort(data: Json<SortCategory>, mut db: Connection<MySQLDb>) -> Result<(), Status> {
     sort_categories(data.active, data.over, &mut db)
+        .await
+        .map_err(|e| {
+            error!("{}", e);
+
+            e.status()
+        })?;
+
+    Ok(())
+}
+
+#[post("/<id>/sites/sort", format = "json", data = "<data>")]
+pub async fn sort_sites(
+    id: i64,
+    data: Json<SortCategory>,
+    mut db: Connection<MySQLDb>,
+) -> Result<(), Status> {
+    sort_category_sites(id, data.active, data.over, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);

@@ -97,14 +97,29 @@ pub async fn add_site(
         _ => ServiceError::DatabaseError(e),
     })?;
 
-    let id = query(r#"INSERT INTO site (name, url, description, icon) VALUES (?, ?, ?, ?)"#)
-        .bind(site.name)
-        .bind(site.url)
-        .bind(site.description)
-        .bind(site.icon)
-        .execute(&mut ***db)
-        .await?
-        .last_insert_id();
+    let order = match query(r#"SELECT MAX(sort_order) AS sort_order FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ?"#)
+         .bind(site.category)
+        .fetch_one(&mut ***db)
+        .await
+    {
+        Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+            Ok(order) => order + 1,
+            Err(_) => 0,
+        },
+        Err(_) => 0,
+    };
+
+    let id = query(
+        r#"INSERT INTO site (name, url, description, icon, sort_order) VALUES (?, ?, ?, ?, ?)"#,
+    )
+    .bind(site.name)
+    .bind(site.url)
+    .bind(site.description)
+    .bind(site.icon)
+    .bind(order)
+    .execute(&mut ***db)
+    .await?
+    .last_insert_id();
 
     query(r#"INSERT INTO category_site (category_id, site_id) VALUES (?, ?)"#)
         .bind(site.category)
@@ -121,7 +136,7 @@ pub async fn update_site(
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Site>(
-        r#"SELECT id, name, url, description, icon, created_at, updated_at FROM site WHERE id = ?"#,
+        r#"SELECT id, name, url, description, icon, sort_order, created_at, updated_at FROM site WHERE id = ?"#,
     )
     .bind(site_id)
     .fetch_one(&mut ***db)
@@ -169,6 +184,7 @@ pub async fn update_site(
         url,
         description,
         icon,
+        sort_order: record.sort_order,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
@@ -193,6 +209,21 @@ pub async fn update_site(
                 }
                 _ => ServiceError::DatabaseError(e),
             })?;
+
+        let order = match query(r#"SELECT MAX(sort_order) AS sort_order FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ?"#).bind(category).fetch_one(&mut ***db).await
+        {
+            Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+                Ok(order) => order + 1,
+                Err(_) => 0,
+            },
+            Err(_) => 0,
+        };
+
+        query(r#"UPDATE site SET sort_order = ? WHERE id = ?"#)
+            .bind(order)
+            .bind(record.id)
+            .execute(&mut ***db)
+            .await?;
 
         query(r#"UPDATE category_site SET category_id = ? WHERE site_id = ?"#)
             .bind(category)
