@@ -102,7 +102,7 @@ pub async fn delete(
     Ok(())
 }
 
-#[post("/visit/<id>")]
+#[post("/<id>/visit")]
 pub async fn analytics(id: &str, mut db: Connection<MySQLDb>) -> Result<(), Status> {
     site::analytics(id, &mut db).await.map_err(|e| {
         error!("{}", e);
