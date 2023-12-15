@@ -1,2 +1,2 @@
 ALTER TABLE site
-ADD COLUMN visit_count INTEGER DEFAULT 0  AFTER sort_order;
+ADD COLUMN visit_count INTEGER DEFAULT 0 AFTER sort_order;

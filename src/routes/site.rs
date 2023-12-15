@@ -48,10 +48,7 @@ pub async fn add(
 
     let icon = standardize_url(site.icon, &config.upload_url);
 
-    let icon = match icon {
-        Some(icon) => icon,
-        None => String::from(site.icon),
-    };
+    let icon = icon.unwrap_or_else(|| String::from(site.icon));
 
     site.icon = icon.as_str();
 
@@ -97,6 +94,17 @@ pub async fn delete(
     _jwt: JwtMiddleware,
 ) -> Result<(), Status> {
     site::delete_site(id, &mut db).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
+
+    Ok(())
+}
+
+#[post("/visit/<id>")]
+pub async fn analytics(id: &str, mut db: Connection<MySQLDb>) -> Result<(), Status> {
+    site::analytics(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 
         e.status()

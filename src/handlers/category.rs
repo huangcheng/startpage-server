@@ -201,7 +201,7 @@ pub async fn get_sites(
 ) -> Result<Vec<response::site::Site>, ServiceError> {
     let sites = match search {
         Some(search) => query_as::<_, response::site::Site>(
-            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? AND (site.name LIKE ? OR site.description LIKE ?) ORDER BY site.sort_order"#,
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon, site.visit_count FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? AND (site.name LIKE ? OR site.description LIKE ?) ORDER BY site.sort_order"#,
         )
         .bind(category_id)
         .bind(format!("%{}%", search))
@@ -209,7 +209,7 @@ pub async fn get_sites(
         .fetch_all(&mut ***db)
         .await?,
         None => query_as::<_, response::site::Site>(
-            r#"SELECT site.id, site.name, site.url, site.description, site.icon FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? ORDER BY site.sort_order"#,
+            r#"SELECT site.id, site.name, site.url, site.description, site.icon, site.visit_count FROM site INNER JOIN category_site ON site.id = category_site.site_id WHERE category_site.category_id = ? ORDER BY site.sort_order"#,
         )
         .bind(category_id)
         .fetch_all(&mut ***db)
@@ -233,6 +233,7 @@ pub async fn get_sites(
                 url: site.url.clone(),
                 description: site.description.clone(),
                 icon,
+                visit_count: site.visit_count,
             }
         })
         .collect())

@@ -57,12 +57,10 @@ pub async fn login(
             ServiceError::InternalServerError
         })?;
 
-        let username = record.username.clone();
-
         cache
             .pset_ex(
-                &username,
                 token.clone(),
+                "",
                 state.jwt_expiration.num_milliseconds() as usize,
             )
             .map_err(|e| {

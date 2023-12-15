@@ -33,7 +33,7 @@ pub async fn get_sites(
 
     let sites = match search {
         Some(search) => query_as::<_, SiteWithCategory>(
-            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, category.name AS category FROM site
+            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, site.visit_count as visit_count, category.name AS category FROM site
                 INNER JOIN category
                 INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE site.name LIKE % OR site.description LIKE % LIMIT ? OFFSET ?
                 "#,
@@ -45,7 +45,7 @@ pub async fn get_sites(
         .fetch_all(&mut ***db)
         .await?,
         None => query_as::<_, SiteWithCategory>(
-            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, category.name AS category FROM site
+            r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, site.visit_count as visit_count, category.name AS category FROM site
                 INNER JOIN category
                 INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id LIMIT ? OFFSET ?
                 "#,
@@ -76,6 +76,7 @@ pub async fn get_sites(
                     icon,
                     description: site.description.clone(),
                     category: site.category.clone(),
+                    visit_count: site.visit_count,
                 }
             })
             .collect(),
@@ -136,7 +137,7 @@ pub async fn update_site(
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Site>(
-        r#"SELECT id, name, url, description, icon, sort_order, created_at, updated_at FROM site WHERE id = ?"#,
+        r#"SELECT id, name, url, description, icon, sort_order, visit_count, created_at, updated_at FROM site WHERE id = ?"#,
     )
     .bind(site_id)
     .fetch_one(&mut ***db)
@@ -185,6 +186,7 @@ pub async fn update_site(
         description,
         icon,
         sort_order: record.sort_order,
+        visit_count: record.visit_count,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
@@ -242,6 +244,15 @@ pub async fn delete_site(id: &str, db: &mut Connection<MySQLDb>) -> Result<(), S
         .await?;
 
     query(r#"DELETE FROM site WHERE id = ?"#)
+        .bind(id)
+        .execute(&mut ***db)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn analytics(id: &str, db: &mut Connection<MySQLDb>) -> Result<(), ServiceError> {
+    query(r#"UPDATE site SET visit_count = visit_count + 1 WHERE id = ?"#)
         .bind(id)
         .execute(&mut ***db)
         .await?;

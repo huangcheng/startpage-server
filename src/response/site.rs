@@ -8,6 +8,7 @@ pub struct Site {
     pub url: String,
     pub description: String,
     pub icon: String,
+    pub visit_count: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -18,4 +19,5 @@ pub struct SiteWithCategory {
     pub description: String,
     pub icon: String,
     pub category: String,
+    pub visit_count: i64,
 }

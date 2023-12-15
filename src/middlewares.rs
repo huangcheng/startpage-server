@@ -39,25 +39,14 @@ impl<'r> FromRequest<'r> for JwtMiddleware {
             None => return Outcome::Error((Status::Unauthorized, JwtError::MissingToken)),
         };
 
-        let token_data = match decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(config.jwt.secret.as_bytes()),
-            &Validation::new(Algorithm::HS256),
-        ) {
-            Ok(token) => token,
-            Err(_) => return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken)),
-        };
-
-        let username = token_data.claims.sub.clone();
-
         let is_in_white_list: &Option<bool> = request
             .local_cache_async(async {
                 let redis = request.guard::<&RedisDb>().await.succeeded()?;
                 let mut connection = redis.get().await.ok()?;
 
-                let value = connection.get::<_, String>(username.clone()).await.ok()?;
+                let result = connection.exists(token).await.ok()?;
 
-                Some(value == token)
+                Some(result)
             })
             .await;
 
@@ -68,6 +57,17 @@ impl<'r> FromRequest<'r> for JwtMiddleware {
         if *is_in_white_list == Some(false) {
             return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken));
         }
+
+        let token_data = match decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(config.jwt.secret.as_bytes()),
+            &Validation::new(Algorithm::HS256),
+        ) {
+            Ok(token) => token,
+            Err(_) => return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken)),
+        };
+
+        let username = token_data.claims.sub.clone();
 
         Outcome::Success(JwtMiddleware { username })
     }
