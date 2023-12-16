@@ -22,9 +22,14 @@ pub async fn me(
     config: &State<Config>,
     jwt: Middleware,
 ) -> Result<Json<User>, Status> {
-    let username = jwt.session;
+    let session = &jwt.session;
 
-    let user = get_user(&username, &config.upload_url, &mut db)
+    let username = match session.split(':').next() {
+        Some(username) => username,
+        None => return Err(Status::Unauthorized),
+    };
+
+    let user = get_user(username, &config.upload_url, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);
