@@ -7,7 +7,7 @@ use rocket_db_pools::Connection;
 use crate::config::Config;
 use crate::handlers::site;
 use crate::handlers::site::get_sites;
-use crate::middlewares::jwt::JwtMiddleware;
+use crate::middlewares::jwt::Middleware;
 use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;
@@ -42,7 +42,7 @@ pub async fn add(
     site: Json<CreateSite<'_>>,
     config: &State<Config>,
     mut db: Connection<MySQLDb>,
-    _jwt: JwtMiddleware,
+    _jwt: Middleware,
 ) -> Result<(), Status> {
     let mut site = site.into_inner();
 
@@ -67,7 +67,7 @@ pub async fn update<'r>(
     site: Json<UpdateSite<'r>>,
     config: &State<Config>,
     mut db: Connection<MySQLDb>,
-    _jwt: JwtMiddleware,
+    _jwt: Middleware,
 ) -> Result<(), Status> {
     let mut site = site.into_inner();
 
@@ -88,11 +88,7 @@ pub async fn update<'r>(
 }
 
 #[delete("/<id>")]
-pub async fn delete(
-    id: &str,
-    mut db: Connection<MySQLDb>,
-    _jwt: JwtMiddleware,
-) -> Result<(), Status> {
+pub async fn delete(id: &str, mut db: Connection<MySQLDb>, _jwt: Middleware) -> Result<(), Status> {
     site::delete_site(id, &mut db).await.map_err(|e| {
         error!("{}", e);
 

@@ -9,8 +9,7 @@ use rocket_db_pools::Connection;
 
 use crate::config::Config;
 use crate::handlers::user::{get_user, update_user, update_user_password};
-use crate::middlewares::jwt::JwtMiddleware;
-use crate::middlewares::token::TokenMiddleware;
+use crate::middlewares::jwt::Middleware;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response::auth::Logout;
 use crate::response::user::User;
@@ -21,9 +20,9 @@ use crate::{MySQLDb, RedisDb};
 pub async fn me(
     mut db: Connection<MySQLDb>,
     config: &State<Config>,
-    jwt: JwtMiddleware,
+    jwt: Middleware,
 ) -> Result<Json<User>, Status> {
-    let username = jwt.username;
+    let username = jwt.session;
 
     let user = get_user(&username, &config.upload_url, &mut db)
         .await
@@ -42,7 +41,7 @@ pub async fn update(
     user: Json<UpdateUser<'_>>,
     config: &State<Config>,
     mut db: Connection<MySQLDb>,
-    _jwt: JwtMiddleware,
+    _jwt: Middleware,
 ) -> Result<(), Status> {
     let mut user = user.into_inner();
 
@@ -68,8 +67,7 @@ pub async fn update_password<'r>(
     password: Json<UpdatePassword<'r>>,
     mut db: Connection<MySQLDb>,
     mut cache: Connection<RedisDb>,
-    token: TokenMiddleware,
-    _jwt: JwtMiddleware,
+    _jwt: Middleware,
 ) -> Result<Logout, Status> {
     update_user_password(username, password.deref(), &mut db)
         .await
@@ -79,11 +77,22 @@ pub async fn update_password<'r>(
             e.status()
         })?;
 
-    cache.del(token.token).await.map_err(|e| {
-        error!("{}", e);
+    let keys = cache
+        .keys::<String, Vec<String>>(format!("{}:*", username))
+        .await
+        .map_err(|e| {
+            error!("{}", e);
 
-        Status::InternalServerError
-    })?;
+            Status::InternalServerError
+        })?;
+
+    for key in keys {
+        cache.del(key).await.map_err(|e| {
+            error!("{}", e);
+
+            Status::InternalServerError
+        })?;
+    }
 
     Ok(Logout)
 }

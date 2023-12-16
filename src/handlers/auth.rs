@@ -5,6 +5,7 @@ use rocket::futures::TryFutureExt;
 use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 use sqlx::query_as;
+use uuid::Uuid;
 
 use crate::config::Config;
 use crate::errors::ServiceError;
@@ -39,9 +40,13 @@ pub async fn login(
         ServiceError::BadRequest(String::from("Invalid username or password"))
     })?;
 
+    let session = Uuid::new_v4().to_string();
+
+    let session = format!("{}:{}", record.username, session);
+
     if valid {
         let claims = Claims {
-            sub: record.username.clone(),
+            sub: session.clone(),
             company: String::from("StartPage"),
             exp: calculate_expires(&config.jwt.expires_in)? as usize,
         };
@@ -59,8 +64,8 @@ pub async fn login(
 
         cache
             .pset_ex(
+                session,
                 token.clone(),
-                "",
                 state.jwt_expiration.num_milliseconds() as usize,
             )
             .map_err(|e| {

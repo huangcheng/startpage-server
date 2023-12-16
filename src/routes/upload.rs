@@ -7,7 +7,7 @@ use rocket::{post, FromForm, State};
 
 use crate::config::Config;
 use crate::handlers;
-use crate::middlewares::jwt::JwtMiddleware;
+use crate::middlewares::jwt::Middleware;
 
 #[derive(FromForm)]
 pub struct Upload<'r> {
@@ -19,7 +19,7 @@ pub struct Upload<'r> {
 pub async fn upload(
     data: Form<Upload<'_>>,
     config: &State<Config>,
-    _jwt: JwtMiddleware,
+    _jwt: Middleware,
 ) -> Result<Json<String>, Status> {
     let result = handlers::upload::upload(&data.file, &config.upload_dir)
         .await

@@ -5,6 +5,9 @@ use sqlx::MySqlPool;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
+    /*
+     * The subject of the token, in the `username:uuid` form.
+     */
     pub sub: String,
     pub company: String,
     pub exp: usize,

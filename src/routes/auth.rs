@@ -9,7 +9,7 @@ use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
-use crate::middlewares::jwt::JwtMiddleware;
+use crate::middlewares::jwt::Middleware;
 use crate::response::auth::Logout;
 use crate::state::AppState;
 use crate::{handlers, request, response, MySQLDb, RedisDb};
@@ -34,10 +34,10 @@ pub async fn login(
 }
 
 #[post("/logout")]
-pub async fn logout(_jwt: JwtMiddleware, mut cache: Connection<RedisDb>) -> Result<Logout, Status> {
-    let username = _jwt.username.clone();
+pub async fn logout(_jwt: Middleware, mut cache: Connection<RedisDb>) -> Result<Logout, Status> {
+    let session = _jwt.session.clone();
 
-    cache.del(username).await.map_err(|e| {
+    cache.del(session).await.map_err(|e| {
         error!("{}", e);
 
         Status::InternalServerError

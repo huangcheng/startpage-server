@@ -6,8 +6,8 @@ use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use crate::config::Config;
 use crate::{Claims, RedisDb};
 
-pub struct JwtMiddleware {
-    pub username: String,
+pub struct Middleware {
+    pub session: String,
 }
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub enum JwtError {
 }
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for JwtMiddleware {
+impl<'r> FromRequest<'r> for Middleware {
     type Error = JwtError;
 
     async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
@@ -39,14 +39,25 @@ impl<'r> FromRequest<'r> for JwtMiddleware {
             None => return Outcome::Error((Status::Unauthorized, JwtError::MissingToken)),
         };
 
+        let token_data = match decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(config.jwt.secret.as_bytes()),
+            &Validation::new(Algorithm::HS256),
+        ) {
+            Ok(token) => token,
+            Err(_) => return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken)),
+        };
+
+        let session = token_data.claims.sub.clone();
+
         let is_in_white_list: &Option<bool> = request
             .local_cache_async(async {
                 let redis = request.guard::<&RedisDb>().await.succeeded()?;
                 let mut connection = redis.get().await.ok()?;
 
-                let result = connection.exists(token).await.ok()?;
+                let result = connection.get::<_, String>(&session).await.ok()?;
 
-                Some(result)
+                Some(result == token)
             })
             .await;
 
@@ -58,17 +69,6 @@ impl<'r> FromRequest<'r> for JwtMiddleware {
             return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken));
         }
 
-        let token_data = match decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(config.jwt.secret.as_bytes()),
-            &Validation::new(Algorithm::HS256),
-        ) {
-            Ok(token) => token,
-            Err(_) => return Outcome::Error((Status::Unauthorized, JwtError::InvalidToken)),
-        };
-
-        let username = token_data.claims.sub.clone();
-
-        Outcome::Success(JwtMiddleware { username })
+        Outcome::Success(Middleware { session })
     }
 }
