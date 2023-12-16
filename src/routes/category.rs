@@ -9,7 +9,7 @@ use crate::handlers::category::{
     self, add_category, delete_category, get_categories, sort_categories, sort_category_sites,
     update_category,
 };
-use crate::middlewares::JwtMiddleware;
+use crate::middlewares::jwt::JwtMiddleware;
 use crate::request::category::{CreateCategory, SortCategory, UpdateCategory};
 use crate::response::category::Category;
 use crate::response::site::Site;

@@ -7,7 +7,7 @@ use rocket_db_pools::Connection;
 use crate::config::Config;
 use crate::handlers::site;
 use crate::handlers::site::get_sites;
-use crate::middlewares::JwtMiddleware;
+use crate::middlewares::jwt::JwtMiddleware;
 use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;

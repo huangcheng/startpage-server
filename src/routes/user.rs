@@ -9,7 +9,8 @@ use rocket_db_pools::Connection;
 
 use crate::config::Config;
 use crate::handlers::user::{get_user, update_user, update_user_password};
-use crate::middlewares::JwtMiddleware;
+use crate::middlewares::jwt::JwtMiddleware;
+use crate::middlewares::token::TokenMiddleware;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response::auth::Logout;
 use crate::response::user::User;
@@ -67,6 +68,7 @@ pub async fn update_password<'r>(
     password: Json<UpdatePassword<'r>>,
     mut db: Connection<MySQLDb>,
     mut cache: Connection<RedisDb>,
+    token: TokenMiddleware,
     _jwt: JwtMiddleware,
 ) -> Result<Logout, Status> {
     update_user_password(username, password.deref(), &mut db)
@@ -77,7 +79,7 @@ pub async fn update_password<'r>(
             e.status()
         })?;
 
-    cache.del(String::from(username)).await.map_err(|e| {
+    cache.del(token.token).await.map_err(|e| {
         error!("{}", e);
 
         Status::InternalServerError

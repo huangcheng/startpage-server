@@ -9,7 +9,7 @@ use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
-use crate::middlewares::JwtMiddleware;
+use crate::middlewares::jwt::JwtMiddleware;
 use crate::response::auth::Logout;
 use crate::state::AppState;
 use crate::{handlers, request, response, MySQLDb, RedisDb};
