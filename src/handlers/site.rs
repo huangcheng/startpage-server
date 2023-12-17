@@ -18,7 +18,7 @@ pub async fn get_sites(
 ) -> Result<WithTotal<SiteWithCategory>, ServiceError> {
     let count = match search {
         Some(search) => {
-            query(r#"SELECT COUNT(id) AS count FROM site WHERE NAME LIKE % OR description LIKE %"#)
+            query(r#"SELECT COUNT(id) AS count FROM site WHERE NAME LIKE ? OR description LIKE ?"#)
                 .bind(format!("%{}%", search))
                 .bind(format!("%{}%", search))
                 .fetch_one(&mut ***db)
@@ -35,7 +35,7 @@ pub async fn get_sites(
         Some(search) => query_as::<_, SiteWithCategory>(
             r#"SELECT site.id AS id, site.name AS name, site.url AS url, site.icon AS icon, site.description AS description, site.visit_count as visit_count, category.name AS category FROM site
                 INNER JOIN category
-                INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE site.name LIKE % OR site.description LIKE % LIMIT ? OFFSET ?
+                INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE site.name LIKE ? OR site.description LIKE ? LIMIT ? OFFSET ?
                 "#,
         )
         .bind(format!("%{}%", search))
