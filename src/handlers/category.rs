@@ -244,25 +244,32 @@ pub async fn sort_categories(
     over_id: Option<i64>,
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
-    let over_id = match over_id {
-        Some(over_id) => Some(over_id),
-        None => {
-            let over_id = query(r#"SELECT id FROM category ORDER BY id DESC LIMIT 1"#)
-                .fetch_one(&mut ***db)
-                .await?
-                .get::<i64, &str>("id");
+    let ids = query(r#"SELECT id FROM category ORDER BY sort_order"#)
+        .fetch_all(&mut ***db)
+        .await?;
 
-            Some(over_id)
-        }
+    let ids = ids
+        .into_iter()
+        .map(|row| row.get::<i64, &str>("id"))
+        .collect::<Vec<i64>>();
+
+    let old_index = ids.iter().position(|id| *id == active_id).unwrap();
+    let new_index = match over_id {
+        Some(over_id) => ids.iter().position(|id| *id == over_id).unwrap(),
+        None => 0,
     };
 
-    query(
-        r#"UPDATE category as c1, category as c2 SET c1.sort_order = c2.sort_order, c2.sort_order = c1.sort_order WHERE c1.id = ? AND c2.id = ?"#
-    )
-        .bind(active_id)
-        .bind(over_id)
-        .execute(&mut ***db)
-        .await?;
+    let mut ids = ids.clone();
+    ids.remove(old_index);
+    ids.insert(new_index, active_id);
+
+    for (index, id) in ids.iter().enumerate() {
+        query(r#"UPDATE category SET sort_order = ? WHERE id = ?"#)
+            .bind(index as i64)
+            .bind(id)
+            .execute(&mut ***db)
+            .await?;
+    }
 
     Ok(())
 }
@@ -290,24 +297,40 @@ pub async fn sort_category_sites(
             ServiceError::BadRequest(String::from("Site not found"))
         })?;
 
-    let over_id = match over_id {
-        Some(over_id) => over_id,
-        None => {
-            query(r#"SELECT site.id as site_id FROM site INNER JOIN category INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id WHERE category.id = ? ORDER BY site.id DESC LIMIT 1"#)
-                .bind(id)
-                .fetch_one(&mut ***db)
-                .await?
-                .get::<i64, &str>("site_id")
-        }
+    let ids = query(
+        r#"
+                SELECT site.id as site_id
+                FROM site
+                INNER JOIN category
+                INNER JOIN category_site ON site.id = category_site.site_id AND category.id = category_site.category_id
+                WHERE category.id = ? ORDER BY site.sort_order;"#,
+    ).bind(id)
+        .fetch_all(&mut ***db)
+        .await?;
+
+    let ids = ids
+        .into_iter()
+        .map(|row| row.get::<i64, &str>("site_id"))
+        .collect::<Vec<i64>>();
+
+    let old_index = ids.iter().position(|id| *id == active_id).unwrap();
+    let new_index = match over_id {
+        Some(over_id) => ids.iter().position(|id| *id == over_id).unwrap(),
+        None => 0,
     };
 
-    query(r#"
-                UPDATE site as s1, site as s2 SET s1.sort_order = s2.sort_order, s2.sort_order = s1.sort_order WHERE s1.id = ? AND s2.id = ?;
-            "#)
-                .bind(active_id)
-                .bind(over_id)
-                .execute(&mut ***db)
-                .await?;
+    let mut ids = ids.clone();
+
+    ids.remove(old_index);
+    ids.insert(new_index, active_id);
+
+    for (index, id) in ids.iter().enumerate() {
+        query(r#"UPDATE site SET sort_order = ? WHERE id = ?"#)
+            .bind(index as i64)
+            .bind(id)
+            .execute(&mut ***db)
+            .await?;
+    }
 
     Ok(())
 }
