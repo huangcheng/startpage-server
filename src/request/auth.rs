@@ -4,4 +4,5 @@ use serde::Deserialize;
 pub struct User<'r> {
     pub username: &'r str,
     pub password: &'r str,
+    pub token: Option<&'r str>,
 }

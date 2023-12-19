@@ -9,7 +9,7 @@ use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
-use crate::middlewares::jwt::Middleware;
+use crate::guards::{jwt::Middleware, remote_ip::Ip};
 use crate::response::auth::Logout;
 use crate::state::AppState;
 use crate::{handlers, request, response, MySQLDb, RedisDb};
@@ -19,10 +19,13 @@ pub async fn login(
     user: Json<request::auth::User<'_>>,
     state: &State<AppState>,
     config: &State<Config>,
+    remote_ip: Ip,
     mut db: Connection<MySQLDb>,
     mut cache: Connection<RedisDb>,
 ) -> Result<response::auth::JwtToken, Status> {
-    let token = handlers::auth::login(user.deref(), state, config, &mut db, &mut cache)
+    let remote_ip = remote_ip.0;
+
+    let token = handlers::auth::login(user.deref(), state, config, remote_ip, &mut db, &mut cache)
         .await
         .map_err(|e| {
             error!("{}", e);

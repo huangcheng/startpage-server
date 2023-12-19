@@ -22,4 +22,6 @@ pub struct Config {
     pub jwt: Jwt,
     pub upload_dir: PathBuf,
     pub upload_url: String,
+    pub turnstile_secret: Option<String>,
+    pub turnstile_url: Option<String>,
 }

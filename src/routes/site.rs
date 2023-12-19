@@ -5,9 +5,9 @@ use rocket::{delete, get, post, put, State};
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
+use crate::guards::jwt::Middleware;
 use crate::handlers::site;
 use crate::handlers::site::get_sites;
-use crate::middlewares::jwt::Middleware;
 use crate::request::site::{CreateSite, UpdateSite};
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;

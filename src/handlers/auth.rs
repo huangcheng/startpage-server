@@ -7,6 +7,9 @@ use rocket_db_pools::Connection;
 use sqlx::query_as;
 use uuid::Uuid;
 
+#[cfg(feature = "turnstile")]
+use reqwest;
+
 use crate::config::Config;
 use crate::errors::ServiceError;
 use crate::request;
@@ -15,13 +18,82 @@ use crate::utils::calculate_expires;
 use crate::Claims;
 use crate::{models, MySQLDb, RedisDb};
 
+#[cfg(feature = "turnstile")]
+use crate::response::auth::TurnstileResponse;
+
 pub async fn login(
     user: &request::auth::User<'_>,
     state: &AppState,
     config: &Config,
+    _remote_ip: Option<String>,
     db: &mut Connection<MySQLDb>,
     cache: &mut Connection<RedisDb>,
 ) -> Result<String, ServiceError> {
+    #[cfg(feature = "turnstile")]
+    {
+        let token = match user.token {
+            Some(token) => token,
+            None => {
+                return Err(ServiceError::BadRequest(String::from(
+                    "Invalid challenge token",
+                )))
+            }
+        };
+
+        let secret = match &config.turnstile_secret {
+            Some(secret) => secret,
+            None => {
+                return Err(ServiceError::BadRequest(String::from(
+                    "Missing Turnstile secret",
+                )))
+            }
+        };
+
+        let url = match &config.turnstile_url {
+            Some(url) => url,
+            None => {
+                return Err(ServiceError::BadRequest(String::from(
+                    "Missing Turnstile URL",
+                )))
+            }
+        };
+
+        let idempotency_key = Uuid::new_v4().to_string();
+
+        let params: [(&str, Option<&str>); 4] = [
+            ("secret", Some(secret)),
+            ("response", Some(token)),
+            ("remoteip", _remote_ip.as_deref()),
+            ("idempotency_key", Some(&idempotency_key)),
+        ];
+
+        let client = reqwest::Client::new();
+
+        let response = client
+            .post(url)
+            .form(&params)
+            .send()
+            .map_err(|e| {
+                error!("Failed to send request to Turnstile: {}", e);
+
+                ServiceError::InternalServerError
+            })
+            .await?
+            .json::<TurnstileResponse>()
+            .map_err(|e| {
+                error!("Failed to parse Turnstile response: {}", e);
+
+                ServiceError::InternalServerError
+            })
+            .await?;
+
+        if !response.success {
+            return Err(ServiceError::BadRequest(String::from(
+                "Invalid challenge token",
+            )));
+        }
+    }
+
     let record = query_as::<_, models::user::User>(
         r#"SELECT username, nickname, password, avatar, email FROM user WHERE username = ?"#,
     )

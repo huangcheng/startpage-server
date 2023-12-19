@@ -2,6 +2,9 @@ use cookie::time::Duration;
 use rocket::http::{ContentType, Cookie};
 use rocket::response::Responder;
 
+#[cfg(feature = "turnstile")]
+use serde::Deserialize;
+
 const COOKIE_MAX_AGE: i64 = 2147483647;
 
 #[derive(Debug)]
@@ -39,4 +42,16 @@ impl<'r> Responder<'r, 'static> for Logout {
             .sized_body(0, std::io::Cursor::new(""))
             .ok()
     }
+}
+
+#[cfg(feature = "turnstile")]
+#[derive(Debug, Deserialize)]
+pub struct TurnstileResponse {
+    pub success: bool,
+    #[serde(rename(deserialize = "error-codes"))]
+    pub error_codes: Vec<String>,
+    pub challenge_ts: Option<String>,
+    pub hostname: Option<String>,
+    pub action: Option<String>,
+    pub cdata: Option<String>,
 }

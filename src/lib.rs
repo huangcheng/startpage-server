@@ -22,8 +22,8 @@ pub struct MySQLDb(MySqlPool);
 pub struct RedisDb(deadpool_redis::Pool);
 
 pub mod errors;
+pub mod guards;
 pub mod handlers;
-pub mod middlewares;
 pub mod models;
 pub mod routes;
 pub mod state;

@@ -6,8 +6,8 @@ use rocket::serde::json::Json;
 use rocket::{post, FromForm, State};
 
 use crate::config::Config;
+use crate::guards::jwt::Middleware;
 use crate::handlers;
-use crate::middlewares::jwt::Middleware;
 
 #[derive(FromForm)]
 pub struct Upload<'r> {

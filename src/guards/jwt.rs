@@ -1,6 +1,7 @@
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome};
+use rocket::Request;
 use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 
 use crate::config::Config;
@@ -23,7 +24,7 @@ pub enum JwtError {
 impl<'r> FromRequest<'r> for Middleware {
     type Error = JwtError;
 
-    async fn from_request(request: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let config = match request.rocket().figment().extract::<Config>() {
             Ok(config) => config,
             Err(_) => return Outcome::Error((Status::InternalServerError, JwtError::ConfigError)),

@@ -8,8 +8,8 @@ use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection;
 
 use crate::config::Config;
+use crate::guards::jwt::Middleware;
 use crate::handlers::user::{get_user, update_user, update_user_password};
-use crate::middlewares::jwt::Middleware;
 use crate::request::user::{UpdatePassword, UpdateUser};
 use crate::response::auth::Logout;
 use crate::response::user::User;

@@ -19,6 +19,7 @@ jsonwebtoken = { version = "9.1.0", default-features = false }
 log = "0.4.20"
 redis = { version = "0.24.0", features = ["tokio-comp"] }
 regex = "1.10.2"
+reqwest = { version = "0.11.23", features = ["json"], optional = true }
 rocket = { version = "0.5.0", features = ["json", "uuid"] }
 rocket_db_pools = { version = "0.1.0", features = ["sqlx_mysql", "deadpool_redis"] }
 serde = { version = "1.0.193", features = ["derive"] }
@@ -27,6 +28,9 @@ sha2 = "0.10.8"
 sqlx = { version = "0.7", features = [ "runtime-tokio", "mysql", "migrate", "uuid", "chrono" ] }
 tokio = { version = "1.34.0", features = ["fs"] }
 uuid = { version = "1.6.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+[features]
+turnstile = ["dep:reqwest"]
 
 [[bin]]
 name = "server"
