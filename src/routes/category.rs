@@ -124,7 +124,7 @@ pub async fn get_sites(
 
 #[post("/sort", format = "json", data = "<data>")]
 pub async fn sort(data: Json<SortCategory>, mut db: Connection<MySQLDb>) -> Result<(), Status> {
-    sort_categories(data.active, data.over, &mut db)
+    sort_categories(data.active, data.over, data.parent_id, &mut db)
         .await
         .map_err(|e| {
             error!("{}", e);

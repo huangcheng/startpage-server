@@ -1,6 +1,7 @@
 use log::error;
 use rocket_db_pools::Connection;
 use sqlx::{query, query_as, Row};
+use std::collections::HashMap;
 
 use crate::errors::ServiceError;
 use crate::models::category::Category;
@@ -18,22 +19,115 @@ pub async fn get_categories(
 ) -> Result<WithTotal<response::category::Category>, ServiceError> {
     let total = match search {
         Some(search) => query(
-            r#"SELECT COUNT(id) AS count FROM category WHERE name LIKE ? OR description LIKE ?"#,
+            r#"
+              WITH RECURSIVE category_hierarchy AS (
+                SELECT
+                    id,
+                    name,
+                    description,
+                    icon,
+                    parent_id
+                FROM
+                    category
+                WHERE
+                    parent_id IS NULL
+                UNION ALL
+                SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.icon,
+                    c.parent_id
+                FROM
+                    category c
+                INNER JOIN
+                    category_hierarchy ch ON ch.id = c.parent_id
+            )
+            SELECT
+                COUNT(id) AS count
+            FROM
+                category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ?;
+                "#,
         )
         .bind(format!("%{}%", search))
         .bind(format!("%{}%", search))
         .fetch_one(&mut ***db)
         .await?
         .get::<i64, &str>("count"),
-        None => query(r#"SELECT COUNT(id) AS count FROM category"#)
-            .fetch_one(&mut ***db)
-            .await?
-            .get::<i64, &str>("count"),
+        None => query(
+            r#"
+            WITH RECURSIVE category_hierarchy AS (
+                SELECT
+                    id,
+                    name,
+                    description,
+                    icon,
+                    parent_id
+                FROM
+                    category
+                WHERE
+                    parent_id IS NULL
+                UNION ALL
+                SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.icon,
+                    c.parent_id
+                FROM
+                    category c
+                INNER JOIN
+                    category_hierarchy ch ON ch.id = c.parent_id
+            )
+            SELECT
+                COUNT(id) AS count
+            FROM
+                category_hierarchy
+        "#,
+        )
+        .fetch_one(&mut ***db)
+        .await?
+        .get::<i64, &str>("count"),
     };
 
-    let categories = match search {
+    let mut categories = match search {
         Some(search) => query_as::<_, Category>(
-            r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category WHERE name ORDER BY sort_order LIKE ? OR description LIKE ? LIMIT ? OFFSET ?"#,
+            r#"
+            WITH RECURSIVE category_hierarchy AS (
+                SELECT
+                    id,
+                    name,
+                    description,
+                    icon,
+                    parent_id,
+                    sort_order,
+                    parent_id,
+                    created_at,
+                    updated_at
+                FROM
+                    category
+                WHERE
+                    parent_id IS NULL
+                UNION ALL
+                SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.icon,
+                    c.parent_id,
+                    c.sort_order
+                    c.created_at,
+                    c.updated_at
+                FROM
+                    category c
+                INNER JOIN
+                    category_hierarchy ch ON ch.id = c.parent_id
+            )
+            SELECT
+               id, name, description, icon, sort_order, parent_id, created_at, updated_at
+            FROM
+                category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ? ORDER BY sort_order LIMIT ? OFFSET ?;
+            "#,
         )
         .bind(format!("%{}%", search))
         .bind(format!("%{}%", search))
@@ -42,7 +136,41 @@ pub async fn get_categories(
         .fetch_all(&mut ***db)
         .await?,
         None => query_as::<_, Category>(
-            r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category ORDER BY sort_order LIMIT ? OFFSET ?"#,
+            r#"
+           WITH RECURSIVE category_hierarchy AS (
+                SELECT
+                    id,
+                    name,
+                    description,
+                    icon,
+                    parent_id,
+                    sort_order,
+                    created_at,
+                    updated_at
+                FROM
+                    category
+                WHERE
+                    parent_id IS NULL
+                UNION ALL
+                SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.icon,
+                    c.parent_id,
+                    c.sort_order,
+                    c.created_at,
+                    c.updated_at
+                FROM
+                    category c
+                INNER JOIN
+                    category_hierarchy ch ON ch.id = c.parent_id
+            )
+            SELECT
+               id, name, description, icon, sort_order, parent_id, created_at, updated_at
+            FROM
+                category_hierarchy AS ch ORDER BY sort_order LIMIT ? OFFSET ?;
+            "#,
         )
         .bind(size)
         .bind(page * size)
@@ -50,27 +178,83 @@ pub async fn get_categories(
         .await?,
     };
 
+    let mut category_map: HashMap<i64, Vec<Category>> = HashMap::new();
+
+    for category in &categories {
+        if let Some(parent_id) = category.parent_id {
+            category_map
+                .entry(parent_id)
+                .or_default()
+                .push(category.clone());
+        }
+    }
+
+    for x in category_map.keys() {
+        let ids = category_map
+            .get(x)
+            .unwrap()
+            .iter()
+            .map(|x| x.id)
+            .collect::<Vec<i64>>();
+
+        for id in ids {
+            categories.remove(categories.iter().position(|x| x.id == id).unwrap());
+        }
+    }
+
+    let mut categories: Vec<response::category::Category> = categories
+        .into_iter()
+        .map(|category| {
+            let icon = category.icon.clone();
+
+            let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                icon
+            } else {
+                format!("{}/{}", upload_url, icon)
+            };
+
+            response::category::Category {
+                id: category.id,
+                name: category.name,
+                description: category.description,
+                icon,
+                children: None,
+            }
+        })
+        .collect();
+
+    for caregory in &mut categories {
+        if category_map.get(&caregory.id).is_some() {
+            let children = category_map.get(&caregory.id).unwrap();
+
+            caregory.children = Some(
+                children
+                    .into_iter()
+                    .map(|category| {
+                        let icon = category.icon.clone();
+
+                        let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                            icon
+                        } else {
+                            format!("{}/{}", upload_url, icon)
+                        };
+
+                        response::category::Category {
+                            id: category.id,
+                            name: category.name.clone(),
+                            description: category.description.clone(),
+                            icon,
+                            children: None,
+                        }
+                    })
+                    .collect(),
+            );
+        }
+    }
+
     Ok(WithTotal {
         total,
-        data: categories
-            .iter()
-            .map(|category| {
-                let icon = category.icon.clone();
-
-                let icon = if icon.starts_with("http") || icon.starts_with("https") {
-                    icon
-                } else {
-                    format!("{}/{}", upload_url, icon)
-                };
-
-                response::category::Category {
-                    id: category.id,
-                    name: category.name.clone(),
-                    description: category.description.clone(),
-                    icon,
-                }
-            })
-            .collect(),
+        data: categories,
     })
 }
 
@@ -114,11 +298,17 @@ pub async fn update_category<'r>(
         None => record.icon,
     };
 
+    let parent_id = match category.parent_id {
+        Some(parent_id) => Some(parent_id),
+        None => record.parent_id,
+    };
+
     let record = Category {
         id: record.id,
         name,
         description,
         icon,
+        parent_id,
         sort_order: record.sort_order,
         created_at: record.created_at,
         updated_at: record.updated_at,
@@ -151,22 +341,32 @@ pub async fn add_category(
         )));
     }
 
-    let order = match query(r#"SELECT MAX(sort_order) AS sort_order FROM category"#)
-        .fetch_one(&mut ***db)
-        .await
-    {
-        Ok(row) => match row.try_get::<i64, &str>("sort_order") {
-            Ok(order) => order + 1,
+    let order = match category.parent_id {
+        Some(parent_id) => match query( r#"SELECT MAX(c1.sort_order) AS sort_order FROM category AS c1 INNER JOIN category AS c2 ON c1.parent_id = c2.id WHERE c1.parent_id = ?"#).bind(parent_id).fetch_one(&mut ***db).await {
+            Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+                Ok(order) => order + 1,
+                Err(_) => 0,
+            },
             Err(_) => 0,
         },
-        Err(_) => 0,
+        None => match query(r#"SELECT MAX(sort_order) AS sort_order FROM category"#)
+            .fetch_one(&mut ***db)
+            .await
+        {
+            Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+                Ok(order) => order + 1,
+                Err(_) => 0,
+            },
+            Err(_) => 0,
+        },
     };
 
-    query(r#"INSERT INTO category (name, description, icon, sort_order) VALUES (?, ?, ?, ?)"#)
+    query(r#"INSERT INTO category (name, description, icon, sort_order, parent_id) VALUES (?, ?, ?, ?, ?)"#)
         .bind(category.name)
         .bind(category.description)
         .bind(category.icon)
         .bind(order)
+        .bind(category.parent_id)
         .execute(&mut ***db)
         .await?;
 
@@ -242,11 +442,22 @@ pub async fn get_sites(
 pub async fn sort_categories(
     active_id: i64,
     over_id: Option<i64>,
+    parent_id: Option<i64>,
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
-    let ids = query(r#"SELECT id FROM category ORDER BY sort_order"#)
-        .fetch_all(&mut ***db)
-        .await?;
+    let ids = match parent_id {
+        Some(parent_id) => {
+            query(r#"SELECT c1.id AS id FROM category AS c1 INNER JOIN category AS c2 ON c1.parent_id = c2.id WHERE c1.parent_id = ? ORDER BY c1.sort_order"#)
+                .bind(parent_id)
+                .fetch_all(&mut ***db)
+                .await?
+        }
+        None => {
+            query(r#"SELECT id FROM category ORDER BY sort_order"#)
+                .fetch_all(&mut ***db)
+                .await?
+        }
+    };
 
     let ids = ids
         .into_iter()

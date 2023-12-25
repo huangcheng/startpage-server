@@ -8,6 +8,7 @@ pub struct Category {
     pub name: String,
     pub description: String,
     pub icon: String,
+    pub children: Option<Vec<Category>>,
 }
 
 impl From<category::Category> for Category {
@@ -17,6 +18,7 @@ impl From<category::Category> for Category {
             name: category.name,
             description: category.description,
             icon: category.icon,
+            children: None,
         }
     }
 }
