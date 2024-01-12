@@ -48,9 +48,23 @@ fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::
         .collect::<Vec<response::category::Category>>();
 
     for category in arr {
-        map.entry(category.parent_id)
-            .or_default()
-            .push(response::category::Category::from(category.clone()));
+        let icon = category.icon.clone();
+
+        let icon = if icon.starts_with("http") || icon.starts_with("https") {
+            icon
+        } else {
+            format!("{}/{}", upload_url, icon)
+        };
+
+        let item = response::category::Category {
+            id: category.id,
+            name: category.name.clone(),
+            description: category.description.clone(),
+            icon,
+            children: None,
+        };
+
+        map.entry(category.parent_id).or_default().push(item);
     }
 
     for category in &mut categories {
