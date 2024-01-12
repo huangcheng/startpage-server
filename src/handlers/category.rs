@@ -1,7 +1,7 @@
 use log::error;
 use rocket_db_pools::Connection;
 use sqlx::{query, query_as, Row};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::errors::ServiceError;
 use crate::models::category::Category;
@@ -9,6 +9,19 @@ use crate::request::category::{CreateCategory, UpdateCategory};
 use crate::response;
 use crate::response::WithTotal;
 use crate::MySQLDb;
+
+fn build_sub_tree(
+    node: &mut response::category::Category,
+    map: &HashMap<Option<i64>, Vec<response::category::Category>>,
+) {
+    if let Some(children) = map.get(&Some(node.id)) {
+        for child in children {
+            let mut child_clone = child.clone();
+            build_sub_tree(&mut child_clone, map);
+            node.children.get_or_insert(Vec::new()).push(child_clone);
+        }
+    }
+}
 
 fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::Category> {
     let mut map: HashMap<Option<i64>, Vec<response::category::Category>> = HashMap::new();
@@ -41,23 +54,24 @@ fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::
     }
 
     for category in &mut categories {
-        if let Some(children) = map.get(&Some(category.id)) {
-            category.children = Some(children.to_vec());
+        build_sub_tree(category, &map);
+    }
+
+    let mut child_ids = HashSet::new();
+    for category in &categories {
+        if let Some(children) = &category.children {
+            for child in children {
+                child_ids.insert(child.id);
+            }
         }
     }
 
-    let ids_to_be_deleted = arr
-        .iter()
-        .filter(|x| x.parent_id.is_some())
-        .map(|x| x.id)
-        .collect::<Vec<i64>>();
-
-    for id in ids_to_be_deleted {
-        categories.remove(categories.iter().position(|x| x.id == id).unwrap());
-    }
-
     categories
+        .into_iter()
+        .filter(|c| !child_ids.contains(&c.id))
+        .collect()
 }
+
 pub async fn get_categories(
     page: i64,
     size: i64,
