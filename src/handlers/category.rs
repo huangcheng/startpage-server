@@ -10,6 +10,54 @@ use crate::response;
 use crate::response::WithTotal;
 use crate::MySQLDb;
 
+fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::Category> {
+    let mut map: HashMap<Option<i64>, Vec<response::category::Category>> = HashMap::new();
+    let mut categories = arr
+        .clone()
+        .iter()
+        .map(|category| {
+            let icon = category.icon.clone();
+
+            let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                icon
+            } else {
+                format!("{}/{}", upload_url, icon)
+            };
+
+            response::category::Category {
+                id: category.id,
+                name: category.name.clone(),
+                description: category.description.clone(),
+                icon,
+                children: None,
+            }
+        })
+        .collect::<Vec<response::category::Category>>();
+
+    for category in arr {
+        map.entry(category.parent_id)
+            .or_default()
+            .push(response::category::Category::from(category.clone()));
+    }
+
+    for category in &mut categories {
+        if let Some(children) = map.get(&Some(category.id)) {
+            category.children = Some(children.to_vec());
+        }
+    }
+
+    let ids_to_be_deleted = arr
+        .iter()
+        .filter(|x| x.parent_id.is_some())
+        .map(|x| x.id)
+        .collect::<Vec<i64>>();
+
+    for id in ids_to_be_deleted {
+        categories.remove(categories.iter().position(|x| x.id == id).unwrap());
+    }
+
+    categories
+}
 pub async fn get_categories(
     page: i64,
     size: i64,
@@ -90,7 +138,7 @@ pub async fn get_categories(
         .get::<i64, &str>("count"),
     };
 
-    let mut categories = match search {
+    let categories = match search {
         Some(search) => query_as::<_, Category>(
             r#"
             WITH RECURSIVE category_hierarchy AS (
@@ -178,83 +226,9 @@ pub async fn get_categories(
         .await?,
     };
 
-    let mut category_map: HashMap<i64, Vec<Category>> = HashMap::new();
-
-    for category in &categories {
-        if let Some(parent_id) = category.parent_id {
-            category_map
-                .entry(parent_id)
-                .or_default()
-                .push(category.clone());
-        }
-    }
-
-    for x in category_map.keys() {
-        let ids = category_map
-            .get(x)
-            .unwrap()
-            .iter()
-            .map(|x| x.id)
-            .collect::<Vec<i64>>();
-
-        for id in ids {
-            categories.remove(categories.iter().position(|x| x.id == id).unwrap());
-        }
-    }
-
-    let mut categories: Vec<response::category::Category> = categories
-        .into_iter()
-        .map(|category| {
-            let icon = category.icon.clone();
-
-            let icon = if icon.starts_with("http") || icon.starts_with("https") {
-                icon
-            } else {
-                format!("{}/{}", upload_url, icon)
-            };
-
-            response::category::Category {
-                id: category.id,
-                name: category.name,
-                description: category.description,
-                icon,
-                children: None,
-            }
-        })
-        .collect();
-
-    for caregory in &mut categories {
-        if category_map.get(&caregory.id).is_some() {
-            let children = category_map.get(&caregory.id).unwrap();
-
-            caregory.children = Some(
-                children
-                    .into_iter()
-                    .map(|category| {
-                        let icon = category.icon.clone();
-
-                        let icon = if icon.starts_with("http") || icon.starts_with("https") {
-                            icon
-                        } else {
-                            format!("{}/{}", upload_url, icon)
-                        };
-
-                        response::category::Category {
-                            id: category.id,
-                            name: category.name.clone(),
-                            description: category.description.clone(),
-                            icon,
-                            children: None,
-                        }
-                    })
-                    .collect(),
-            );
-        }
-    }
-
     Ok(WithTotal {
         total,
-        data: categories,
+        data: build_tree(&categories, upload_url),
     })
 }
 

@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::models::category;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Category {
     pub id: i64,
     pub name: String,
