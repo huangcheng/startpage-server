@@ -93,10 +93,8 @@ pub async fn get_categories(
     upload_url: &str,
     db: &mut Connection<MySQLDb>,
 ) -> Result<WithTotal<response::category::Category>, ServiceError> {
-    let total = match search {
-        Some(search) => query(
-            r#"
-              WITH RECURSIVE category_hierarchy AS (
+    let common_sql: &str = r#"
+        WITH RECURSIVE category_hierarchy AS (
                 SELECT
                     id,
                     name,
@@ -118,12 +116,22 @@ pub async fn get_categories(
                     category c
                 INNER JOIN
                     category_hierarchy ch ON ch.id = c.parent_id
+        )
+    "#;
+
+    let total = match search {
+        Some(search) => query(
+            format!(
+                "{}{}",
+                common_sql,
+                r#"
+                SELECT
+                    COUNT(id) AS count
+                FROM
+                    category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ?;
+                "#
             )
-            SELECT
-                COUNT(id) AS count
-            FROM
-                category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ?;
-                "#,
+            .as_str(),
         )
         .bind(format!("%{}%", search))
         .bind(format!("%{}%", search))
@@ -131,89 +139,25 @@ pub async fn get_categories(
         .await?
         .get::<i64, &str>("count"),
         None => query(
-            r#"
-            WITH RECURSIVE category_hierarchy AS (
+            format!(
+                "{}{}",
+                common_sql,
+                r#"
                 SELECT
-                    id,
-                    name,
-                    description,
-                    icon,
-                    parent_id
+                    COUNT(id) AS count
                 FROM
-                    category
-                WHERE
-                    parent_id IS NULL
-                UNION ALL
-                SELECT
-                    c.id,
-                    c.name,
-                    c.description,
-                    c.icon,
-                    c.parent_id
-                FROM
-                    category c
-                INNER JOIN
-                    category_hierarchy ch ON ch.id = c.parent_id
+                    category_hierarchy
+                "#
             )
-            SELECT
-                COUNT(id) AS count
-            FROM
-                category_hierarchy
-        "#,
+            .as_str(),
         )
         .fetch_one(&mut ***db)
         .await?
         .get::<i64, &str>("count"),
     };
 
-    let categories = match search {
-        Some(search) => query_as::<_, Category>(
-            r#"
-            WITH RECURSIVE category_hierarchy AS (
-                SELECT
-                    id,
-                    name,
-                    description,
-                    icon,
-                    parent_id,
-                    sort_order,
-                    parent_id,
-                    created_at,
-                    updated_at
-                FROM
-                    category
-                WHERE
-                    parent_id IS NULL
-                UNION ALL
-                SELECT
-                    c.id,
-                    c.name,
-                    c.description,
-                    c.icon,
-                    c.parent_id,
-                    c.sort_order
-                    c.created_at,
-                    c.updated_at
-                FROM
-                    category c
-                INNER JOIN
-                    category_hierarchy ch ON ch.id = c.parent_id
-            )
-            SELECT
-               id, name, description, icon, sort_order, parent_id, created_at, updated_at
-            FROM
-                category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ? ORDER BY sort_order LIMIT ? OFFSET ?;
-            "#,
-        )
-        .bind(format!("%{}%", search))
-        .bind(format!("%{}%", search))
-        .bind(size)
-        .bind(page * size)
-        .fetch_all(&mut ***db)
-        .await?,
-        None => query_as::<_, Category>(
-            r#"
-           WITH RECURSIVE category_hierarchy AS (
+    let common_sql: &str = r#"
+        WITH RECURSIVE category_hierarchy AS (
                 SELECT
                     id,
                     name,
@@ -241,13 +185,28 @@ pub async fn get_categories(
                     category c
                 INNER JOIN
                     category_hierarchy ch ON ch.id = c.parent_id
-            )
+        )
+    "#;
+
+    let categories = match search {
+        Some(search) => query_as::<_, Category>(format!("{}{}", common_sql, r#"
             SELECT
                id, name, description, icon, sort_order, parent_id, created_at, updated_at
             FROM
-                category_hierarchy AS ch ORDER BY sort_order LIMIT ? OFFSET ?;
-            "#,
-        )
+               category_hierarchy AS ch WHERE ch.name LIKE ? OR ch.description LIKE ? ORDER BY sort_order LIMIT ? OFFSET ?
+        "#).as_str())
+        .bind(format!("%{}%", search))
+        .bind(format!("%{}%", search))
+        .bind(size)
+        .bind(page * size)
+        .fetch_all(&mut ***db)
+        .await?,
+        None => query_as::<_, Category>(format!("{}{}", common_sql, r#"
+            SELECT
+               id, name, description, icon, sort_order, parent_id, created_at, updated_at
+            FROM
+               category_hierarchy AS ch ORDER BY sort_order LIMIT ? OFFSET ?
+        "#).as_str())
         .bind(size)
         .bind(page * size)
         .fetch_all(&mut ***db)
@@ -266,7 +225,7 @@ pub async fn update_category<'r>(
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     let record = query_as::<_, Category>(
-        r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category WHERE id = ?"#,
+        r#"SELECT id, name, description, icon, sort_order, parent_id, created_at, updated_at FROM category WHERE id = ?"#,
     )
     .bind(id)
     .fetch_one(&mut ***db)
