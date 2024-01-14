@@ -7,8 +7,8 @@ use rocket_db_pools::Connection;
 use crate::config::Config;
 use crate::guards::jwt::Middleware;
 use crate::handlers::category::{
-    self, add_category, delete_category, get_categories, sort_categories, sort_category_sites,
-    update_category,
+    self, add_category, delete_category, get_categories, get_categories_flat, sort_categories,
+    sort_category_sites, update_category,
 };
 use crate::request::category::{CreateCategory, SortCategory, UpdateCategory};
 use crate::response::category::Category;
@@ -17,11 +17,12 @@ use crate::response::WithTotal;
 use crate::utils::standardize_url;
 use crate::MySQLDb;
 
-#[get("/?<page>&<size>&<search>")]
+#[get("/?<page>&<size>&<search>&<flat>")]
 pub async fn all(
     page: Option<i64>,
     size: Option<i64>,
     search: Option<&str>,
+    flat: Option<bool>,
     config: &State<Config>,
     mut db: Connection<MySQLDb>,
 ) -> Result<Json<WithTotal<Category>>, Status> {
@@ -29,13 +30,22 @@ pub async fn all(
 
     let size = size.unwrap_or(10);
 
-    let result = get_categories(page, size, search, &config.upload_url, &mut db)
-        .await
-        .map_err(|e| {
-            error!("{}", e);
+    let result = match flat {
+        Some(true) => get_categories_flat(page, size, search, &config.upload_url, &mut db)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
 
-            e.status()
-        })?;
+                e.status()
+            })?,
+        _ => get_categories(page, size, search, &config.upload_url, &mut db)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+
+                e.status()
+            })?,
+    };
 
     Ok(Json(result))
 }

@@ -42,6 +42,7 @@ fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::
                 name: category.name.clone(),
                 description: category.description.clone(),
                 icon,
+                parent_id: category.parent_id,
                 children: None,
             }
         })
@@ -61,6 +62,7 @@ fn build_tree(arr: &Vec<Category>, upload_url: &str) -> Vec<response::category::
             name: category.name.clone(),
             description: category.description.clone(),
             icon,
+            parent_id: category.parent_id,
             children: None,
         };
 
@@ -219,6 +221,73 @@ pub async fn get_categories(
     })
 }
 
+pub async fn get_categories_flat(
+    page: i64,
+    size: i64,
+    search: Option<&str>,
+    upload_url: &str,
+    db: &mut Connection<MySQLDb>,
+) -> Result<WithTotal<response::category::Category>, ServiceError> {
+    let total = match search {
+        Some(search) => query(
+            r#"SELECT COUNT(id) AS count FROM category WHERE name LIKE ? OR description LIKE ?"#,
+        )
+        .bind(format!("%{}%", search))
+        .bind(format!("%{}%", search))
+        .fetch_one(&mut ***db)
+        .await?
+        .get::<i64, &str>("count"),
+        None => query(r#"SELECT COUNT(id) AS count FROM category"#)
+            .fetch_one(&mut ***db)
+            .await?
+            .get::<i64, &str>("count"),
+    };
+
+    let categories = match search {
+        Some(search) => query_as::<_, Category>(
+            r#"SELECT id, name, description, icon, sort_order, parent_id, created_at, updated_at FROM category WHERE name ORDER BY sort_order LIKE ? OR description LIKE ? LIMIT ? OFFSET ?"#,
+        )
+        .bind(format!("%{}%", search))
+        .bind(format!("%{}%", search))
+        .bind(size)
+        .bind(page * size)
+        .fetch_all(&mut ***db)
+        .await?,
+        None => query_as::<_, Category>(
+            r#"SELECT id, name, description, icon, sort_order, parent_id, created_at, updated_at FROM category ORDER BY sort_order LIMIT ? OFFSET ?"#,
+        )
+        .bind(size)
+        .bind(page * size)
+        .fetch_all(&mut ***db)
+        .await?,
+    };
+
+    Ok(WithTotal {
+        total,
+        data: categories
+            .iter()
+            .map(|category| {
+                let icon = category.icon.clone();
+
+                let icon = if icon.starts_with("http") || icon.starts_with("https") {
+                    icon
+                } else {
+                    format!("{}/{}", upload_url, icon)
+                };
+
+                response::category::Category {
+                    id: category.id,
+                    name: category.name.clone(),
+                    description: category.description.clone(),
+                    icon,
+                    parent_id: category.parent_id,
+                    children: None,
+                }
+            })
+            .collect(),
+    })
+}
+
 pub async fn update_category<'r>(
     id: &'r str,
     category: &'r UpdateCategory<'r>,
@@ -234,6 +303,12 @@ pub async fn update_category<'r>(
         sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Category not found")),
         _ => ServiceError::DatabaseError(e),
     })?;
+
+    if category.parent_id == Some(record.id) {
+        return Err(ServiceError::BadRequest(String::from(
+            "Category cannot be its own parent",
+        )));
+    }
 
     let name = match category.name {
         Some(name) => match name.len() {
@@ -259,9 +334,28 @@ pub async fn update_category<'r>(
         None => record.icon,
     };
 
-    let parent_id = match category.parent_id {
-        Some(parent_id) => Some(parent_id),
-        None => record.parent_id,
+    let order = if category.parent_id != record.parent_id {
+        match category.parent_id {
+            Some(parent_id) => match query(r#"SELECT MAX(c1.sort_order) AS sort_order FROM category AS c1 INNER JOIN category AS c2 ON c1.parent_id = c2.id WHERE c1.parent_id = ?"#).bind(parent_id).fetch_one(&mut ***db).await {
+                Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+                    Ok(order) => order + 1,
+                    Err(_) => 0,
+                },
+                Err(_) => 0,
+            },
+            None => match query(r#"SELECT MAX(sort_order) AS sort_order FROM category"#)
+                .fetch_one(&mut ***db)
+                .await
+            {
+                Ok(row) => match row.try_get::<i64, &str>("sort_order") {
+                    Ok(order) => order + 1,
+                    Err(_) => 0,
+                },
+                Err(_) => 0,
+            },
+        }
+    } else {
+        record.sort_order
     };
 
     let record = Category {
@@ -269,16 +363,18 @@ pub async fn update_category<'r>(
         name,
         description,
         icon,
-        parent_id,
+        parent_id: category.parent_id,
         sort_order: record.sort_order,
         created_at: record.created_at,
         updated_at: record.updated_at,
     };
 
-    query(r#"UPDATE category SET name = ?, description = ?, icon = ? WHERE id = ?"#)
+    query(r#"UPDATE category SET name = ?, description = ?, icon = ?, parent_id = ?, sort_order = ? WHERE id = ?"#)
         .bind(&record.name)
         .bind(&record.description)
         .bind(&record.icon)
+        .bind(category.parent_id)
+        .bind(order)
         .bind(record.id)
         .execute(&mut ***db)
         .await?;
