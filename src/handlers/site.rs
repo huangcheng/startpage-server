@@ -88,7 +88,7 @@ pub async fn add_site(
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
     query_as::<_, Category>(
-        r#"SELECT id, name, description, icon, sort_order, created_at, updated_at FROM category WHERE id = ?"#,
+        r#"SELECT id, name, description, icon, sort_order, parent_id, created_at, updated_at FROM category WHERE id = ?"#,
     )
     .bind(site.category)
     .fetch_one(&mut ***db)
