@@ -9,10 +9,35 @@ use crate::guards::jwt::Middleware;
 use crate::handlers::site;
 use crate::handlers::site::get_sites;
 use crate::request::site::{CreateSite, UpdateSite};
-use crate::response::site::SiteWithCategory;
+use crate::response::site::{Site, SiteWithCategory};
 use crate::response::WithTotal;
 use crate::utils::standardize_url;
 use crate::MySQLDb;
+
+#[get("/<id>")]
+pub async fn get(
+    id: i64,
+    config: &State<Config>,
+    mut db: Connection<MySQLDb>,
+) -> Result<Json<Site>, Status> {
+    let mut site = site::get_site(id, &mut db).await.map_err(|e| {
+        error!("{}", e);
+
+        e.status()
+    })?;
+
+    let icon = site.icon.clone();
+
+    let icon = if icon.starts_with("http") || icon.starts_with("https") {
+        icon
+    } else {
+        format!("{}/{}", config.upload_url, icon)
+    };
+
+    site.icon = icon;
+
+    Ok(Json(site))
+}
 
 #[get("/?<page>&<size>&<search>")]
 pub async fn all(

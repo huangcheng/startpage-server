@@ -92,7 +92,13 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/api/sites", routes![site::all])
         .mount(
             "/api/site",
-            routes![site::add, site::update, site::delete, site::analytics],
+            routes![
+                site::get,
+                site::add,
+                site::update,
+                site::delete,
+                site::analytics
+            ],
         )
         .mount("/api/upload", routes![upload])
         .mount(upload_url, FileServer::from(upload_dir))

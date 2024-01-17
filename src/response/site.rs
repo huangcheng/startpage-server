@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
+use crate::models::site::Site as SiteModel;
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Site {
     pub id: i64,
@@ -20,4 +22,17 @@ pub struct SiteWithCategory {
     pub icon: String,
     pub category: String,
     pub visit_count: i64,
+}
+
+impl From<SiteModel> for Site {
+    fn from(site: SiteModel) -> Self {
+        Self {
+            id: site.id,
+            name: site.name,
+            url: site.url,
+            description: site.description,
+            icon: site.icon,
+            visit_count: site.visit_count,
+        }
+    }
 }

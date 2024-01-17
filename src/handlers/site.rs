@@ -5,6 +5,7 @@ use crate::errors::ServiceError;
 use crate::models::category::Category;
 use crate::models::site::Site;
 use crate::request::site::{CreateSite, UpdateSite};
+use crate::response::site::Site as SiteResponse;
 use crate::response::site::SiteWithCategory;
 use crate::response::WithTotal;
 use crate::MySQLDb;
@@ -258,4 +259,19 @@ pub async fn analytics(id: &str, db: &mut Connection<MySQLDb>) -> Result<(), Ser
         .await?;
 
     Ok(())
+}
+
+pub async fn get_site(id: i64, db: &mut Connection<MySQLDb>) -> Result<SiteResponse, ServiceError> {
+    let record = query_as::<_, Site>(
+        r#"SELECT id, name, url, description, icon, sort_order, visit_count, created_at, updated_at FROM site WHERE id = ?"#,
+    )
+    .bind(id)
+    .fetch_one(&mut ***db)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => ServiceError::BadRequest(String::from("Site not found")),
+        _ => ServiceError::DatabaseError(e),
+    })?;
+
+    Ok(record.into())
 }
