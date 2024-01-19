@@ -386,18 +386,6 @@ pub async fn add_category(
     category: &CreateCategory<'_>,
     db: &mut Connection<MySQLDb>,
 ) -> Result<(), ServiceError> {
-    let id = query(r#"SELECT id FROM category WHERE name = ?"#)
-        .bind(category.name)
-        .fetch_optional(&mut ***db)
-        .await?
-        .map(|row| row.get::<i64, &str>("id"));
-
-    if id.is_some() {
-        return Err(ServiceError::AlreadyExists(String::from(
-            "Category already exists",
-        )));
-    }
-
     let order = match category.parent_id {
         Some(parent_id) => match query( r#"SELECT MAX(c1.sort_order) AS sort_order FROM category AS c1 INNER JOIN category AS c2 ON c1.parent_id = c2.id WHERE c1.parent_id = ?"#).bind(parent_id).fetch_one(&mut ***db).await {
             Ok(row) => match row.try_get::<i64, &str>("sort_order") {
